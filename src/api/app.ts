@@ -47,6 +47,7 @@ app.post("/notes", async (c) => {
 
 app.get("/knowledge", async (c) => {
   const q = c.req.query("q") ?? "";
-  const limit = c.req.query("limit") ? Number(c.req.query("limit")) : undefined;
+  const n = Number(c.req.query("limit"));
+  const limit = Number.isFinite(n) && n > 0 ? n : undefined;
   return c.json(await searchKnowledge(q, { limit }));
 });
