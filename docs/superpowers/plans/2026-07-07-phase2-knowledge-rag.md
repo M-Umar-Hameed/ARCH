@@ -428,12 +428,13 @@ test("indexed vault content is retrievable and ranked", async () => {
 });
 
 test("dim mismatch rows are excluded", async () => {
-  const wrong = new FakeEmbedder(1024);
-  // Query with a 512-dim embedder must not compare against 1024-dim rows.
+  // Index at 1024 dims, then query with a 512-dim embedder. No 512-dim rows
+  // exist anywhere in the store, and the 1024-dim rows must be filtered out,
+  // so the result is empty (proves the dim filter, not just no-throw).
+  await upsertVaultFile(`dim-${Date.now()}.md`, "# X\nsome indexed content", emb);
   const small = new FakeEmbedder(512);
-  const hits = await searchKnowledge("anything", { limit: 5 }, small);
-  expect(hits.every((h) => true)).toBe(true); // no throw; mismatched rows filtered by dim
-  void wrong;
+  const hits = await searchKnowledge("some indexed content", { limit: 5 }, small);
+  expect(hits.length).toBe(0);
 });
 ```
 
