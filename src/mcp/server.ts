@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { pathToFileURL } from "node:url";
 import { z } from "zod";
 import { resolveActor } from "../services/actors.js";
 import { createTicket, updateTicket } from "../services/tickets.js";
@@ -35,7 +36,7 @@ export async function buildServer(apiKey: string) {
   return server;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const server = await buildServer(process.env.TICKETS_API_KEY!);
   await server.connect(new StdioServerTransport());
 }
