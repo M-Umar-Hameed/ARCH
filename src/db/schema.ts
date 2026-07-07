@@ -1,6 +1,7 @@
 import {
-  pgTable, uuid, text, integer, timestamp, jsonb, pgEnum, index,
+  pgTable, uuid, text, integer, timestamp, jsonb, pgEnum, index, check, vector, boolean,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const ticketStatus = pgEnum("ticket_status", ["open", "in_progress", "closed"]);
 export const ticketPriority = pgEnum("ticket_priority", ["low", "normal", "high"]);
@@ -43,18 +44,55 @@ export const comments = pgTable("comments", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({ ticketIdx: index("comments_ticket_idx").on(t.ticketId) }));
 
-// Append-only. No UPDATE, no DELETE, ever.
+// Append-only. No UPDATE, no DELETE, ever. Audits both tickets and notes.
 export const events = pgTable("events", {
   id: uuid("id").primaryKey().defaultRandom(),
   actorId: uuid("actor_id").notNull().references(() => actors.id),
-  ticketId: uuid("ticket_id").notNull().references(() => tickets.id),
+  ticketId: uuid("ticket_id").references(() => tickets.id),
+  noteId: uuid("note_id").references(() => notes.id),
   action: text("action").notNull(), // e.g. ticket.created, ticket.updated, comment.added
   changes: jsonb("changes").$type<Record<string, { from: unknown; to: unknown }>>(),
   at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
-}, (t) => ({ ticketIdx: index("events_ticket_idx").on(t.ticketId) }));
+}, (t) => ({
+  ticketIdx: index("events_ticket_idx").on(t.ticketId),
+  target: check("events_target_ck", sql`${t.ticketId} is not null or ${t.noteId} is not null`),
+}));
+
+export const noteScope = pgEnum("note_scope", ["global", "project", "ticket"]);
+export const sourceKind = pgEnum("source_kind", ["vault", "note"]);
+
+export const notes = pgTable("notes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  actorId: uuid("actor_id").notNull().references(() => actors.id),
+  body: text("body").notNull(),
+  scope: noteScope("scope").notNull(),
+  refId: uuid("ref_id"),
+  indexed: boolean("indexed").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const embeddings = pgTable("embeddings", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  sourceKind: sourceKind("source_kind").notNull(),
+  sourceRef: text("source_ref").notNull(),
+  chunkIndex: integer("chunk_index").notNull(),
+  content: text("content").notNull(),
+  embedding: vector("embedding", { dimensions: 1024 }).notNull(),
+  model: text("model").notNull(),
+  dim: integer("dim").notNull(),
+  contentHash: text("content_hash").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  srcIdx: index("embeddings_src_idx").on(t.sourceKind, t.sourceRef),
+  uniqChunk: index("embeddings_uniq_chunk").on(t.sourceKind, t.sourceRef, t.chunkIndex),
+}));
 
 export type Ticket = typeof tickets.$inferSelect;
 export type NewTicket = typeof tickets.$inferInsert;
 export type Actor = typeof actors.$inferSelect;
 export type Comment = typeof comments.$inferSelect;
 export type Event = typeof events.$inferSelect;
+export type Note = typeof notes.$inferSelect;
+export type NewNote = typeof notes.$inferInsert;
+export type Embedding = typeof embeddings.$inferSelect;
+export type NewEmbedding = typeof embeddings.$inferInsert;
