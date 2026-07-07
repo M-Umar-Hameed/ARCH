@@ -1,0 +1,29 @@
+{
+  "name": "tickets",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:push": "drizzle-kit push",
+    "dev": "tsx watch src/api/server.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "drizzle-orm": "^0.36.0",
+    "hono": "^4.6.0",
+    "@hono/node-server": "^1.13.0",
+    "postgres": "^3.4.5",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.28.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^2.1.0",
+    "@types/node": "^22.0.0"
+  }
+}
