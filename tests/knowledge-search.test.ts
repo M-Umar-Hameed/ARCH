@@ -5,9 +5,16 @@ import { upsertVaultFile, searchKnowledge } from "../src/services/knowledge.js";
 const emb = new FakeEmbedder(1024);
 
 test("indexed vault content is retrievable and ranked", async () => {
-  const p = `note-${Date.now()}.md`;
-  await upsertVaultFile(p, "# Backups\nRun pg_dump nightly to the NAS share.", emb);
-  const hits = await searchKnowledge("how do we back up postgres", { limit: 5 }, emb);
+  // FakeEmbedder hashes text, so identical text yields an identical vector (cosine
+  // distance 0). The content must be unique per run — otherwise duplicate-content
+  // rows from earlier runs in the shared embeddings table also sit at distance 0 and
+  // crowd this run's file out of the top-`limit`. A unique marker guarantees exactly
+  // one distance-0 row (this run's), so querying that exact text ranks it first.
+  const uniq = `run-${Date.now()}-${Math.round(performance.now() * 1000)}`;
+  const content = `# Backups ${uniq}\nRun pg_dump nightly to the NAS share.`;
+  const p = `note-${uniq}.md`;
+  await upsertVaultFile(p, content, emb);
+  const hits = await searchKnowledge(content, { limit: 5 }, emb);
   expect(hits.length).toBeGreaterThan(0);
   const mine = hits.find((h) => h.sourceRef === p);
   expect(mine).toBeDefined();
