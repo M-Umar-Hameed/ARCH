@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, integer, timestamp, jsonb, pgEnum, index, check, vector, boolean,
+  pgTable, uuid, text, integer, timestamp, jsonb, pgEnum, index, uniqueIndex, check, vector, boolean,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -84,7 +84,7 @@ export const embeddings = pgTable("embeddings", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   srcIdx: index("embeddings_src_idx").on(t.sourceKind, t.sourceRef),
-  uniqChunk: index("embeddings_uniq_chunk").on(t.sourceKind, t.sourceRef, t.chunkIndex),
+  uniqChunk: uniqueIndex("embeddings_uniq_chunk").on(t.sourceKind, t.sourceRef, t.chunkIndex),
 }));
 
 export type Ticket = typeof tickets.$inferSelect;
