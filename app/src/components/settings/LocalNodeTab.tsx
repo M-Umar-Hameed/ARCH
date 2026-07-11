@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getSettings, saveSettings } from "../../settings.js";
+import { getSettings, saveSettings, detectLocalNode } from "../../settings.js";
 import { projects } from "../../api/projects.js";
 
 export function LocalNodeTab({ rejected }: { rejected: boolean }) {
@@ -29,8 +29,20 @@ export function LocalNodeTab({ rejected }: { rejected: boolean }) {
     setTesting(false);
   }
   
-  async function save() { 
-    await saveSettings({ baseUrl, apiKey }); 
+  async function save() {
+    await saveSettings({ baseUrl, apiKey });
+  }
+
+  async function detect() {
+    const found = await detectLocalNode();
+    if (found) {
+      setBaseUrl(found.baseUrl);
+      setApiKey(found.apiKey);
+      await saveSettings(found);
+      await test();
+    } else {
+      setStatus("bad");
+    }
   }
 
   return (
@@ -103,7 +115,15 @@ export function LocalNodeTab({ rejected }: { rejected: boolean }) {
               </div>
 
               <div className="flex gap-4 mt-6">
-                <button 
+                <button
+                  className="flex-1 py-3 rounded-lg border border-white/10 font-medium text-sm text-on-surface hover:bg-surface-container-highest hover:border-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  onClick={detect}
+                  disabled={testing}
+                >
+                  <span className="material-symbols-outlined text-[18px]">radar</span>
+                  Detect local node
+                </button>
+                <button
                   className="flex-1 py-3 rounded-lg border border-white/10 font-medium text-sm text-on-surface hover:bg-surface-container-highest hover:border-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   onClick={test}
                   disabled={testing}

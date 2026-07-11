@@ -15,6 +15,10 @@
         { "url": "https://*/*" }
       ]
     },
-    "store:default"
+    "store:default",
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$HOME/.vibeops/*" }]
+    }
   ]
 }

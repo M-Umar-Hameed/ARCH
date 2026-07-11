@@ -1,7 +1,24 @@
 import { load } from "@tauri-apps/plugin-store";
+import { readTextFile, BaseDirectory } from "@tauri-apps/plugin-fs";
 
 export type Settings = { baseUrl: string; apiKey: string };
 const FILE = "settings.json";
+
+type ReadImpl = (path: string, opts: { baseDir: number }) => Promise<string>;
+let readImpl: ReadImpl = readTextFile as unknown as ReadImpl;
+export function setReadTextFileImpl(fn: ReadImpl) { readImpl = fn; }
+
+// Read server-written first-run credentials; null when absent/unreadable/malformed.
+export async function detectLocalNode(): Promise<Settings | null> {
+  try {
+    const raw = await readImpl(".vibeops/credentials.json", { baseDir: BaseDirectory.Home });
+    const parsed = JSON.parse(raw);
+    if (typeof parsed.baseUrl !== "string" || typeof parsed.apiKey !== "string" || !parsed.apiKey) return null;
+    return { baseUrl: parsed.baseUrl, apiKey: parsed.apiKey };
+  } catch {
+    return null;
+  }
+}
 
 export async function getSettings(): Promise<Settings> {
   const store = await load(FILE, { autoSave: false, defaults: {} });

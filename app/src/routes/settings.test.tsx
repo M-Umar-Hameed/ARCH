@@ -4,7 +4,7 @@ import { SettingsScreen } from "./settings.js";
 
 const nav = vi.fn();
 vi.mock("../api/projects.js", () => ({ projects: { list: vi.fn(async () => []) } }));
-vi.mock("../settings.js", () => ({ getSettings: vi.fn(async () => ({ baseUrl: "", apiKey: "" })), saveSettings: vi.fn(async () => {}) }));
+vi.mock("../settings.js", () => ({ getSettings: vi.fn(async () => ({ baseUrl: "", apiKey: "" })), saveSettings: vi.fn(async () => {}), detectLocalNode: vi.fn(async () => null) }));
 vi.mock("@tanstack/react-router", () => ({ useNavigate: () => nav }));
 
 test("Test connection shows Connected on success", async () => {
