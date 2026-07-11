@@ -18,8 +18,10 @@ export async function runBootstrap(
   const { apiKey } = await createActor({ name: "owner", kind: "human", role: "admin" });
   const creds = { baseUrl: `http://localhost:${port}`, apiKey };
   try {
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, "credentials.json"), JSON.stringify(creds, null, 2));
+    // Owner-only permissions (like ~/.ssh). Effective on POSIX; on Windows the
+    // file inherits the user-profile ACL, which is already user-scoped.
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    writeFileSync(join(dir, "credentials.json"), JSON.stringify(creds, null, 2), { mode: 0o600 });
   } catch (e) {
     console.warn(`could not write credentials file: ${(e as Error).message}`);
     console.log(`api key (copy now, shown once): ${apiKey}`);
