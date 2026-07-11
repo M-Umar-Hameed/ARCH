@@ -3,14 +3,17 @@ import { useNavigate } from "@tanstack/react-router";
 import { getSettings, saveSettings } from "../settings.js";
 import { projects } from "../api/projects.js";
 import { Banner } from "../components/Banner.js";
+import { isAuthRejected, clearAuthRejected } from "../lib/queryClient.js";
 
 export function SettingsScreen() {
   const nav = useNavigate();
   const [baseUrl, setBaseUrl] = useState("http://localhost:8787");
   const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState<string | null>(null);
+  const [rejected] = useState(isAuthRejected);
 
   useEffect(() => {
+    clearAuthRejected();
     getSettings().then((s) => {
       setBaseUrl(s.baseUrl);
       setApiKey(s.apiKey);
@@ -27,6 +30,7 @@ export function SettingsScreen() {
   return (
     <div>
       <h2>Settings</h2>
+      {rejected && <Banner kind="error" message="Key rejected — check your API key." />}
       <label>Server URL <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} /></label>
       <label>API Key <input value={apiKey} onChange={(e) => setApiKey(e.target.value)} /></label>
       <button onClick={test}>Test connection</button>
