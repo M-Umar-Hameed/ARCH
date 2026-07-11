@@ -76,6 +76,11 @@ export async function searchKnowledge(
 
 export async function getKnowledgeSource(kind: string, ref: string): Promise<string> {
   if (kind === "vault") {
+    // Only serve refs that exist in the knowledge index (exact sourceRef match).
+    // Without this check the endpoint is an arbitrary file read for any actor.
+    const [indexed] = await db.select({ id: embeddings.id }).from(embeddings)
+      .where(and(eq(embeddings.sourceKind, "vault"), eq(embeddings.sourceRef, ref))).limit(1);
+    if (!indexed) return `Error: ${ref} is not an indexed vault source.`;
     try {
       return await readFile(ref, "utf-8");
     } catch (e) {
