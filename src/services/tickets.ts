@@ -8,12 +8,13 @@ export async function createTicket(
   input: {
     projectId: string; title: string; body?: string;
     priority?: "low" | "normal" | "high"; assigneeId?: string;
+    status?: "open" | "in_progress" | "closed";
   },
 ): Promise<Ticket> {
   return db.transaction(async (tx) => {
     const [ticket] = await tx.insert(tickets).values({
       projectId: input.projectId, title: input.title, body: input.body ?? "",
-      priority: input.priority ?? "normal", assigneeId: input.assigneeId,
+      priority: input.priority ?? "normal", assigneeId: input.assigneeId, status: input.status,
     }).returning();
     await tx.insert(events).values({
       actorId, ticketId: ticket.id, action: "ticket.created",

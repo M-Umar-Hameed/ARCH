@@ -10,9 +10,10 @@ export type ExternalTicket = {
 export interface SourceConnector {
   source: string;
   // `since` filtering MUST be inclusive (updatedAt >= since), or otherwise re-surface
-  // recently-touched tickets. The import engine advances its cursor per ticket; an
-  // inclusive `since` is what lets a comment that failed mid-run be retried on the
-  // next poll (the ticket re-appears and comment-dedup fills the gap). GitHub's
-  // `since` param is inclusive, which satisfies this.
+  // recently-touched tickets. The cursor is the max externalUpdatedAt across all synced
+  // tickets, so self-heal only holds for a failed item at or above that run's max
+  // updatedAt; an older item that fails while a newer one succeeds sits below the next
+  // cursor and won't be retried until its own external updatedAt changes. GitHub's
+  // `since` param is inclusive, which satisfies the inclusive requirement above.
   listExternalTickets(since?: Date): Promise<ExternalTicket[]>;
 }
