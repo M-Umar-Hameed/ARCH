@@ -16,8 +16,8 @@ test("creating a ticket posts and navigates to detail", async () => {
   render(wrap(<CreateScreen />));
   await waitFor(() => screen.getByText("Proj"));
   fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "p1" } });
-  fireEvent.change(screen.getByPlaceholderText("title"), { target: { value: "Hello" } });
-  fireEvent.click(screen.getByText("Create"));
+  fireEvent.change(screen.getByPlaceholderText(/Define process scope/i), { target: { value: "Hello" } });
+  fireEvent.click(screen.getByText(/EXECUTE_SUBMIT/i));
   await waitFor(() => expect(createTicket).toHaveBeenCalled());
   await waitFor(() => expect(nav).toHaveBeenCalledWith({ to: "/tickets/$id", params: { id: "new1" } }));
 });

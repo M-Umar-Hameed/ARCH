@@ -15,12 +15,12 @@ vi.mock("../api/actors.js", () => ({ actors: { list: vi.fn(async () => []) } }))
 import { DetailScreen } from "./detail.js";
 const wrap = (ui: any) => <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>;
 
-test("Save sends expectedVersion; a 409 shows the banner and keeps the edit", async () => {
+test("Changing status auto-saves with expectedVersion; a 409 shows the banner and keeps the edit", async () => {
   update.mockRejectedValueOnce(new StaleVersionError("stale"));
   render(wrap(<DetailScreen id="t1" />));
   await waitFor(() => screen.getByText("T"));
+  // Status select auto-saves on change (no separate Save button in this UI).
   fireEvent.change(screen.getByRole("combobox"), { target: { value: "closed" } });
-  fireEvent.click(screen.getByText("Save"));
   await waitFor(() => expect(update).toHaveBeenCalledWith("t1", 1, { status: "closed" }));
   await waitFor(() => expect(screen.getByText(/changed elsewhere/)).toBeInTheDocument());
   // edit preserved:

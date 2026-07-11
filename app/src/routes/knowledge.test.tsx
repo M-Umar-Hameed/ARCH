@@ -10,8 +10,8 @@ const wrap = (ui: any) => <QueryClientProvider client={new QueryClient()}>{ui}</
 
 test("search shows results with citation", async () => {
   render(wrap(<KnowledgeScreen />));
-  fireEvent.change(screen.getByPlaceholderText("search"), { target: { value: "backup" } });
-  fireEvent.click(screen.getByText("Search"));
+  fireEvent.change(screen.getByPlaceholderText(/Search Obsidian Vault/i), { target: { value: "backup" } });
+  fireEvent.click(screen.getByText("Scan"));
   await waitFor(() => expect(screen.getByText(/backup nightly/)).toBeInTheDocument());
   expect(screen.getByText(/sop.md/)).toBeInTheDocument();
 });
