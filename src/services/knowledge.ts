@@ -9,13 +9,17 @@ export function fileHash(text: string): string {
   return createHash("sha256").update(text).digest("hex");
 }
 
+export function fileHashBytes(buf: Buffer): string {
+  return createHash("sha256").update(buf).digest("hex");
+}
+
 function vecLiteral(v: number[]): string {
   return `[${v.join(",")}]`;
 }
 
-export async function upsertVaultFile(path: string, text: string, embedder: Embedder): Promise<number> {
+export async function upsertVaultFile(path: string, text: string, embedder: Embedder, contentHash?: string): Promise<number> {
   const chunks = chunkMarkdown(text);
-  const hash = fileHash(text);
+  const hash = contentHash ?? fileHash(text);
   await db.delete(embeddings)
     .where(and(eq(embeddings.sourceKind, "vault"), eq(embeddings.sourceRef, path)));
   if (chunks.length === 0) return 0;
