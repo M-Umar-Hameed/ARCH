@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { and, eq } from "drizzle-orm";
-import { db, sql as rawSql } from "../db/client.js";
+import { and, eq, sql as dsql } from "drizzle-orm";
+import { db } from "../db/client.js";
 import { embeddings, notes } from "../db/schema.js";
 import { chunkMarkdown } from "../knowledge/chunker.js";
 import { getEmbedder, type Embedder } from "../knowledge/embedder.js";
@@ -61,13 +61,14 @@ export async function searchKnowledge(
   const limit = opts.limit ?? 5;
   const lit = vecLiteral(qv);
   // Cosine distance; filter to active dim so mixed-dim rows never compare.
-  const rows = await rawSql`
+  const res: unknown = await db.execute(dsql`
     select source_kind, source_ref, content,
            1 - (embedding <=> ${lit}::vector) as score
     from embeddings
     where dim = ${embedder.dim}
     order by embedding <=> ${lit}::vector
-    limit ${limit}`;
+    limit ${limit}`);
+  const rows = (Array.isArray(res) ? res : (res as { rows: unknown[] }).rows) as any[];
   return rows.map((r: any) => ({
     content: r.content, sourceKind: r.source_kind, sourceRef: r.source_ref,
     score: Number(r.score), citation: r.source_ref,
