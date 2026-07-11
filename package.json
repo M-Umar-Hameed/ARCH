@@ -6,6 +6,7 @@
   "scripts": {
     "db:up": "docker compose up -d",
     "db:push": "drizzle-kit push",
+    "db:generate": "drizzle-kit generate",
     "db:vector": "tsx -e \"import('./src/db/vector-setup.js').then(m=>m.ensureExtension())\"",
     "db:vector:index": "tsx -e \"import('./src/db/vector-setup.js').then(m=>m.ensureIndex())\"",
     "ingest:watch": "tsx src/ingest/watch.ts",
@@ -17,21 +18,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@electric-sql/pglite": "^0.2.17",
+    "@hono/node-server": "^1.13.0",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@octokit/rest": "^21.0.0",
     "@opendataloader/pdf": "^2.4.7",
     "chokidar": "^4.0.0",
     "drizzle-orm": "^0.36.0",
     "hono": "^4.6.0",
-    "@hono/node-server": "^1.13.0",
     "postgres": "^3.4.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "drizzle-kit": "^0.28.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
-    "@types/node": "^22.0.0"
+    "vitest": "^2.1.0"
   }
 }
