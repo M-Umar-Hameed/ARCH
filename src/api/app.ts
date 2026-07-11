@@ -66,17 +66,10 @@ app.get("/knowledge", async (c) => {
 });
 
 app.get("/knowledge/source", async (c) => {
-  try {
-    const kind = c.req.query("kind");
-    const ref = c.req.query("ref");
-    console.log("KNOWLEDGE SOURCE REQUEST:", { kind, ref });
-    if (!kind || !ref) return c.json({ error: "Missing kind or ref" }, 400);
-    const text = await getKnowledgeSource(kind, ref);
-    return c.json({ text });
-  } catch (err: any) {
-    console.error("APP_TS ERROR:", err);
-    return c.json({ error: err.message }, 500);
-  }
+  const kind = c.req.query("kind");
+  const ref = c.req.query("ref");
+  if (!kind || !ref) return c.json({ error: "Missing kind or ref" }, 400);
+  return c.json({ text: await getKnowledgeSource(kind, ref) });
 });
 
 app.get("/system/metrics", async (c) => c.json(await getSystemMetrics()));

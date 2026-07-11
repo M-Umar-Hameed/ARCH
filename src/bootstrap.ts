@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { db } from "./db/client.js";
@@ -21,7 +21,9 @@ export async function runBootstrap(
     // Owner-only permissions (like ~/.ssh). Effective on POSIX; on Windows the
     // file inherits the user-profile ACL, which is already user-scoped.
     mkdirSync(dir, { recursive: true, mode: 0o700 });
-    writeFileSync(join(dir, "credentials.json"), JSON.stringify(creds, null, 2), { mode: 0o600 });
+    const credsPath = join(dir, "credentials.json");
+    writeFileSync(credsPath, JSON.stringify(creds, null, 2), { mode: 0o600 });
+    chmodSync(credsPath, 0o600); // mode option only applies on creation; tighten pre-existing files too
   } catch (e) {
     console.warn(`could not write credentials file: ${(e as Error).message}`);
     console.log(`api key (copy now, shown once): ${apiKey}`);
