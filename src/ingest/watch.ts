@@ -4,28 +4,33 @@ import { pathToFileURL } from "node:url";
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { embeddings } from "../db/schema.js";
-import { upsertVaultFile, deleteVaultFile, fileHash } from "../services/knowledge.js";
+import { upsertVaultFile, deleteVaultFile, fileHash, fileHashBytes } from "../services/knowledge.js";
 import { sweepUnindexedNotes } from "../services/notes.js";
 import { getEmbedder, type Embedder } from "../knowledge/embedder.js";
+import { convertPdf } from "./pdf.js";
 
-function walkMd(dir: string): string[] {
+let pdfConverter: (path: string) => Promise<string> = convertPdf;
+export function setPdfConverter(fn: (path: string) => Promise<string>) { pdfConverter = fn; }
+
+function walkDocs(dir: string): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     const s = statSync(p);
-    if (s.isDirectory()) out.push(...walkMd(p));
-    else if (name.endsWith(".md")) out.push(p);
+    if (s.isDirectory()) out.push(...walkDocs(p));
+    else if (name.endsWith(".md") || name.toLowerCase().endsWith(".pdf")) out.push(p);
   }
   return out;
 }
 
 export async function reindexFile(path: string, embedder: Embedder): Promise<boolean> {
-  const text = readFileSync(path, "utf8");
-  const hash = fileHash(text);
+  const isPdf = path.toLowerCase().endsWith(".pdf");
+  const hash = isPdf ? fileHashBytes(readFileSync(path)) : fileHash(readFileSync(path, "utf8"));
   const [existing] = await db.select({ h: embeddings.contentHash }).from(embeddings)
     .where(and(eq(embeddings.sourceKind, "vault"), eq(embeddings.sourceRef, path))).limit(1);
   if (existing && existing.h === hash) return false;
-  await upsertVaultFile(path, text, embedder);
+  const text = isPdf ? await pdfConverter(path) : readFileSync(path, "utf8");
+  await upsertVaultFile(path, text, embedder, hash);
   return true;
 }
 
@@ -33,7 +38,7 @@ export async function indexVaultOnce(
   dir: string, embedder: Embedder,
 ): Promise<{ indexed: number; skipped: number }> {
   let indexed = 0, skipped = 0;
-  for (const path of walkMd(dir)) {
+  for (const path of walkDocs(dir)) {
     try {
       if (await reindexFile(path, embedder)) indexed++; else skipped++;
     }
