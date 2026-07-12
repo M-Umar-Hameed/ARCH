@@ -1,84 +1,152 @@
+import { useState } from "react";
 import { ProviderCard } from "./ProviderCard.js";
+import { AIUsageTab } from "./AIUsageTab.js";
+
+type SubTab = "providers" | "usage";
 
 export function AIModelsTab() {
+  const [activeTab, setActiveTab] = useState<SubTab>("providers");
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="mb-8 border-b border-white/10 pb-6">
-        <h2 className="font-headline-md text-headline-md text-on-surface mb-2">AI Model Providers</h2>
-        <p className="text-on-surface-variant text-sm max-w-2xl">
-          Configure the AI models that power VibeOps intelligent features like auto-tagging, summarization, and codebase querying. Keys are stored locally on your device.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="font-headline-md text-headline-md text-on-surface mb-2">AI Settings</h2>
+            <p className="text-on-surface-variant text-sm max-w-2xl">
+              Configure AI models, auto-routing strategies, and monitor your API usage limits.
+            </p>
+          </div>
+          
+          <div className="flex bg-surface-container-lowest/50 p-1 rounded-lg border border-white/5">
+            <button
+              onClick={() => setActiveTab("providers")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === "providers" ? "bg-primary/20 text-primary" : "text-on-surface-variant hover:text-on-surface"}`}
+            >
+              Providers & Routing
+            </button>
+            <button
+              onClick={() => setActiveTab("usage")}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-all ${activeTab === "usage" ? "bg-primary/20 text-primary" : "text-on-surface-variant hover:text-on-surface"}`}
+            >
+              Token Usage
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="space-y-6 max-w-3xl">
-        
-        <ProviderCard 
-          settingKey="openai.api_key"
-          name="OpenAI"
-          subtitle="GPT-4 & Embeddings"
-          placeholder="sk-..."
-          borderColorClass="white/20"
-          icon={
-            <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
-              <span className="text-black text-2xl">✹</span>
+      {activeTab === "providers" ? (
+        <div className="space-y-8 max-w-3xl">
+          {/* Routing Strategy Card */}
+          <div className="glass-card rounded-xl border border-white/10 p-6 flex flex-col gap-4 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+            
+            <div>
+              <h3 className="font-headline-sm text-on-surface font-bold flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary text-xl">route</span>
+                Smart Routing Strategy
+              </h3>
+              <p className="text-xs text-on-surface-variant mt-1">Automatically utilize whichever provider is available and control costs.</p>
             </div>
-          }
-        />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="mt-0.5 relative flex items-center justify-center">
+                  <input type="radio" name="strategy" className="peer appearance-none w-4 h-4 rounded-full border border-white/20 checked:border-primary transition-all" defaultChecked />
+                  <div className="absolute w-2 h-2 rounded-full bg-primary opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">Cost-Optimized Fallback</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">Prefers local/cheaper models first, falls back to premium if unavailable or for complex tasks.</div>
+                </div>
+              </label>
 
-        <ProviderCard 
-          settingKey="anthropic.api_key"
-          name="Anthropic"
-          subtitle="Claude 3.5 Sonnet"
-          placeholder="sk-ant-..."
-          borderColorClass="[#D97757]/40"
-          icon={
-            <div className="w-12 h-12 bg-[#D97757]/20 rounded-xl flex items-center justify-center">
-              <span className="font-serif italic text-2xl text-[#D97757]">C</span>
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <div className="mt-0.5 relative flex items-center justify-center">
+                  <input type="radio" name="strategy" className="peer appearance-none w-4 h-4 rounded-full border border-white/20 checked:border-primary transition-all" />
+                  <div className="absolute w-2 h-2 rounded-full bg-primary opacity-0 peer-checked:opacity-100 transition-opacity"></div>
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">Maximum Intelligence</div>
+                  <div className="text-xs text-on-surface-variant mt-0.5">Always routes to the most capable model configured (e.g. Claude 3.5 or GPT-4) regardless of cost.</div>
+                </div>
+              </label>
             </div>
-          }
-        />
-        
-        <ProviderCard 
-          settingKey="google.api_key"
-          name="Google"
-          subtitle="Gemini 1.5 Pro"
-          placeholder="AIza..."
-          borderColorClass="[#4285F4]/40"
-          icon={
-            <div className="w-12 h-12 bg-[#4285F4]/20 rounded-xl flex items-center justify-center">
-              <span className="material-symbols-outlined text-2xl text-[#4285F4]">memory</span>
-            </div>
-          }
-        />
+          </div>
 
-        <ProviderCard 
-          settingKey="voyage.api_key"
-          name="Voyage AI"
-          subtitle="Premium Knowledge Embeddings"
-          placeholder="pa-..."
-          borderColorClass="[#8B5CF6]/40"
-          icon={
-            <div className="w-12 h-12 bg-[#8B5CF6]/20 rounded-xl flex items-center justify-center">
-              <span className="material-symbols-outlined text-2xl text-[#8B5CF6]">explore</span>
-            </div>
-          }
-        />
-        
-        <ProviderCard 
-          settingKey="ollama.url"
-          name="Local Model"
-          subtitle="Ollama / Llama 3"
-          placeholder="http://localhost:11434"
-          borderColorClass="secondary/40"
-          icon={
-            <div className="w-12 h-12 bg-surface-container-highest rounded-xl flex items-center justify-center">
-              <img src="https://ollama.com/public/icon-64x64.png" alt="Ollama" className="w-8 h-8" onError={(e) => e.currentTarget.style.display = 'none'} />
-              <span className="material-symbols-outlined text-secondary absolute -z-10">smart_toy</span>
-            </div>
-          }
-        />
+          <div className="space-y-6">
+            <h3 className="text-xs font-code-sm uppercase tracking-widest text-on-surface-variant/50 ml-2">Configured Providers</h3>
+            
+            <ProviderCard 
+              settingKey="anthropic.api_key"
+              name="Anthropic"
+              subtitle="Claude 3.5 Sonnet"
+              placeholder="sk-ant-..."
+              borderColorClass="[#D97757]/40"
+              icon={
+                <div className="w-12 h-12 bg-[#D97757]/20 rounded-xl flex items-center justify-center">
+                  <span className="font-serif italic text-2xl text-[#D97757]">C</span>
+                </div>
+              }
+            />
 
-      </div>
+            <ProviderCard 
+              settingKey="openai.api_key"
+              name="OpenAI / Codex"
+              subtitle="GPT-4o & Codex"
+              placeholder="sk-..."
+              borderColorClass="white/20"
+              icon={
+                <div className="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center">
+                  <span className="text-white text-2xl material-symbols-outlined">psychology</span>
+                </div>
+              }
+            />
+            
+            <ProviderCard 
+              settingKey="google.api_key"
+              name="Google"
+              subtitle="Antigravity & Gemini"
+              placeholder="AIza..."
+              borderColorClass="[#4285F4]/40"
+              icon={
+                <div className="w-12 h-12 bg-[#4285F4]/20 rounded-xl flex items-center justify-center">
+                  <span className="material-symbols-outlined text-2xl text-[#4285F4]">memory</span>
+                </div>
+              }
+            />
+
+            <ProviderCard 
+              settingKey="voyage.api_key"
+              name="Voyage AI"
+              subtitle="Premium Knowledge Embeddings"
+              placeholder="pa-..."
+              borderColorClass="[#8B5CF6]/40"
+              icon={
+                <div className="w-12 h-12 bg-[#8B5CF6]/20 rounded-xl flex items-center justify-center">
+                  <span className="material-symbols-outlined text-2xl text-[#8B5CF6]">explore</span>
+                </div>
+              }
+            />
+            
+            <ProviderCard 
+              settingKey="ollama.url"
+              name="Local Node"
+              subtitle="Ollama / Llama 3 (Free)"
+              placeholder="http://localhost:11434"
+              borderColorClass="secondary/40"
+              icon={
+                <div className="w-12 h-12 bg-surface-container-highest rounded-xl flex items-center justify-center">
+                  <img src="https://ollama.com/public/icon-64x64.png" alt="Ollama" className="w-8 h-8" onError={(e) => e.currentTarget.style.display = 'none'} />
+                  <span className="material-symbols-outlined text-secondary absolute -z-10">smart_toy</span>
+                </div>
+              }
+            />
+          </div>
+        </div>
+      ) : (
+        <AIUsageTab />
+      )}
     </div>
   );
 }
