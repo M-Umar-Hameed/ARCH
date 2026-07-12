@@ -12,5 +12,8 @@ if (isEmbedded) {
 }
 // Embedded (installed desktop) mode is loopback-only; external-Postgres deployments
 // legitimately serve other hosts.
-serve({ fetch: app.fetch, port, hostname: isEmbedded ? "127.0.0.1" : "0.0.0.0" });
+// overrideGlobalObjects:false — hono's lightweight global Response breaks
+// transformers.js model caching (`response instanceof Response` fails, so the
+// local embedder can never download its model inside the server).
+serve({ fetch: app.fetch, port, hostname: isEmbedded ? "127.0.0.1" : "0.0.0.0", overrideGlobalObjects: false });
 console.log(`api on :${port}${isEmbedded ? " (embedded db)" : ""}`);
