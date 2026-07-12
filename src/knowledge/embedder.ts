@@ -1,4 +1,6 @@
 import { createHash } from "node:crypto";
+import { join } from "node:path";
+import { homedir } from "node:os";
 
 export interface Embedder {
   embed(texts: string[]): Promise<number[][]>;
@@ -12,6 +14,7 @@ export const MODEL_DIMS: Record<string, number> = {
   "text-embedding-3-small": 1536,
   "text-embedding-3-large": 3072,
   "text-embedding-004": 768,
+  "all-MiniLM-L6-v2": 384,
 };
 
 // Deterministic pseudo-embedding for tests: hash-seeded unit-ish vector.
@@ -23,6 +26,32 @@ export class FakeEmbedder implements Embedder {
       const h = createHash("sha256").update(t).digest();
       return Array.from({ length: this.dim }, (_, i) => (h[i % h.length] / 255) * 2 - 1);
     });
+  }
+}
+
+export function padTo(v: number[], width: number): number[] {
+  return v.length >= width ? v : [...v, ...new Array(width - v.length).fill(0)];
+}
+
+// Zero-key local model. `dim` is the TRUE model dim — the search discriminator —
+// while returned vectors are zero-padded to the vector(1024) column width
+// (padding shared zeros does not change cosine similarity).
+export class LocalEmbedder implements Embedder {
+  model = "all-MiniLM-L6-v2";
+  dim = 384;
+  private pipe?: Promise<(texts: string[], opts: object) => Promise<{ tolist(): number[][] }>>;
+  private load() {
+    // Lazy: the server must boot without loading ONNX; first embed pays the cost.
+    this.pipe ??= import("@huggingface/transformers").then((t) => {
+      t.env.cacheDir = join(homedir(), ".vibeops", "models");
+      return t.pipeline("feature-extraction", "Xenova/all-MiniLM-L6-v2", { dtype: "q8" }) as never;
+    });
+    return this.pipe;
+  }
+  async embed(texts: string[]): Promise<number[][]> {
+    const pipe = await this.load();
+    const out = await pipe(texts, { pooling: "mean", normalize: true });
+    return out.tolist().map((v) => padTo(v, 1024));
   }
 }
 
@@ -46,8 +75,10 @@ export class VoyageEmbedder implements Embedder {
 }
 
 export function getEmbedder(): Embedder {
-  const provider = process.env.EMBED_PROVIDER ?? "voyage";
+  const provider = process.env.EMBED_PROVIDER
+    ?? (process.env.VOYAGE_API_KEY ? "voyage" : "local");
   if (provider === "fake") return new FakeEmbedder(1024);
+  if (provider === "local") return new LocalEmbedder();
   const model = process.env.EMBED_MODEL ?? "voyage-3";
   if (!MODEL_DIMS[model]) throw new Error(`unknown embed model: ${model}`);
   if (provider === "voyage") return new VoyageEmbedder(model, process.env.VOYAGE_API_KEY ?? "");
