@@ -75,13 +75,20 @@ export async function searchKnowledge(
   const limit = opts.limit ?? 5;
   const lit = vecLiteral(qv);
   // Cosine distance; filter to active dim so mixed-dim rows never compare.
-  const res: unknown = await db.execute(dsql`
+  // SET LOCAL needs the same connection as the query, hence the transaction.
+  // ef_search 100 (default 40): the dim filter runs AFTER the ANN scan, so
+  // mixed-dim/mixed-source indexes need a wider candidate pool or exact
+  // matches fall out of the top-k as the table grows.
+  const res: unknown = await db.transaction(async (tx) => {
+    await tx.execute(dsql`set local hnsw.ef_search = 100`);
+    return tx.execute(dsql`
     select source_kind, source_ref, content,
            1 - (embedding <=> ${lit}::vector) as score
     from embeddings
     where dim = ${embedder.dim}
     order by embedding <=> ${lit}::vector
     limit ${limit}`);
+  });
   const rows = (Array.isArray(res) ? res : (res as { rows: unknown[] }).rows) as any[];
   return rows.map((r: any) => ({
     content: r.content, sourceKind: r.source_kind, sourceRef: r.source_ref,
