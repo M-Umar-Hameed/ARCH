@@ -33,7 +33,6 @@ export function installClientConfig(
   if (!spec) throw new Error(`unknown client: ${client}`);
   const path = join(homeDir, ...spec.rel);
   let existing: Record<string, unknown> = {};
-  let backedUp = false;
   if (existsSync(path)) {
     const raw = readFileSync(path, "utf-8");
     try {
@@ -41,9 +40,20 @@ export function installClientConfig(
     } catch {
       throw new Error(`unparseable JSON at ${path}; not touching it`);
     }
-    copyFileSync(path, path + ".vibeops-backup");
-    backedUp = true;
+    // Validate mcpServers shape before proceeding
+    if ("mcpServers" in existing && existing.mcpServers !== null && typeof existing.mcpServers !== "object") {
+      throw new Error(`unexpected mcpServers shape at ${path}; not touching it`);
+    }
+    if ("mcpServers" in existing && Array.isArray(existing.mcpServers)) {
+      throw new Error(`unexpected mcpServers shape at ${path}; not touching it`);
+    }
   }
+  // Only create backup if one doesn't already exist
+  const backupPath = path + ".vibeops-backup";
+  if (existsSync(path) && !existsSync(backupPath)) {
+    copyFileSync(path, backupPath);
+  }
+  const backedUp = existsSync(backupPath);
   const servers = (existing.mcpServers ?? {}) as Record<string, unknown>;
   servers.vibeops = spec.entry(url, apiKey);
   existing.mcpServers = servers;

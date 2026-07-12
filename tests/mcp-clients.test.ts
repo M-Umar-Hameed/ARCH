@@ -62,4 +62,49 @@ describe("installClientConfig", () => {
     expect(readFileSync(p, "utf-8")).toBe("{not json");
     expect(existsSync(p + ".vibeops-backup")).toBe(false);
   });
+
+  it("refuses mcpServers shape that is an array", () => {
+    const home = mkdtempSync(join(tmpdir(), "vibeops-mcp-"));
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    const p = join(home, ".cursor", "mcp.json");
+    writeFileSync(p, JSON.stringify({ mcpServers: [] }));
+    expect(() => installClientConfig("cursor", URL, KEY, home)).toThrow(/unexpected mcpServers shape/);
+    expect(JSON.parse(readFileSync(p, "utf-8"))).toEqual({ mcpServers: [] });
+    expect(existsSync(p + ".vibeops-backup")).toBe(false);
+  });
+
+  it("refuses mcpServers shape that is a string", () => {
+    const home = mkdtempSync(join(tmpdir(), "vibeops-mcp-"));
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    const p = join(home, ".cursor", "mcp.json");
+    writeFileSync(p, JSON.stringify({ mcpServers: "oops" }));
+    expect(() => installClientConfig("cursor", URL, KEY, home)).toThrow(/unexpected mcpServers shape/);
+    expect(JSON.parse(readFileSync(p, "utf-8"))).toEqual({ mcpServers: "oops" });
+    expect(existsSync(p + ".vibeops-backup")).toBe(false);
+  });
+
+  it("preserves original backup content on re-install", () => {
+    const home = mkdtempSync(join(tmpdir(), "vibeops-mcp-"));
+    mkdirSync(join(home, ".cursor"), { recursive: true });
+    const p = join(home, ".cursor", "mcp.json");
+    const original = { theme: "light", mcpServers: {} };
+    writeFileSync(p, JSON.stringify(original));
+
+    // First install
+    const r1 = installClientConfig("cursor", URL, "key-1", home);
+    expect(r1.backedUp).toBe(true);
+    const backupAfterFirst = JSON.parse(readFileSync(p + ".vibeops-backup", "utf-8"));
+    expect(backupAfterFirst).toEqual(original);
+
+    // Modify the file directly
+    const modified = JSON.parse(readFileSync(p, "utf-8"));
+    modified.theme = "dark";
+    writeFileSync(p, JSON.stringify(modified));
+
+    // Second install
+    const r2 = installClientConfig("cursor", URL, "key-2", home);
+    expect(r2.backedUp).toBe(true);
+    const backupAfterSecond = JSON.parse(readFileSync(p + ".vibeops-backup", "utf-8"));
+    expect(backupAfterSecond).toEqual(original); // Should still match original
+  });
 });
