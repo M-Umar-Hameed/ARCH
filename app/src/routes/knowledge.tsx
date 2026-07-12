@@ -3,6 +3,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { knowledge } from "../api/knowledge.js";
 import { notes } from "../api/notes.js";
+import { apiFetch } from "../api/client.js";
+import { NotesPanel } from "../components/NotesPanel.js";
 
 export function KnowledgeScreen() {
   const nav = useNavigate();
@@ -29,6 +31,13 @@ export function KnowledgeScreen() {
     onSuccess: () => { setSaved(true); setBody(""); setTimeout(() => setSaved(false), 3000); },
   });
 
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const sync = useMutation({
+    mutationFn: () =>
+      apiFetch("/ingest/sessions", { method: "POST", body: {} }) as Promise<Record<string, { indexed: number; skipped: number; failed: number }>>,
+    onSuccess: (summary) => setSyncResult(Object.entries(summary).map(([source, r]) => `${source} ${r.indexed}`).join(" · ")),
+  });
+
   return (
     <div className="relative min-h-[calc(100vh-64px)] flex flex-col">
       {/* Command Center Search */}
@@ -37,6 +46,17 @@ export function KnowledgeScreen() {
           <div className="text-center space-y-2 mb-8">
             <h2 className="font-headline-lg text-headline-lg text-on-surface">Universal Knowledge Index</h2>
             <p className="font-code-sm text-on-surface-variant/70 uppercase tracking-widest">Accessing local vault: //{typeof window !== 'undefined' ? window.location.host : 'sys'}/obsidian_core</p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <button
+                className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest border border-white/10 rounded font-code-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary hover:border-primary/30 transition-colors cursor-pointer disabled:opacity-50"
+                disabled={sync.isPending}
+                onClick={() => sync.mutate()}
+              >
+                {sync.isPending && <span className="material-symbols-outlined animate-spin text-sm">sync</span>}
+                Sync sessions
+              </button>
+              {syncResult && <span className="font-code-sm text-[10px] text-on-surface-variant/70">{syncResult}</span>}
+            </div>
           </div>
           
           {/* Large Search Bar */}
@@ -98,6 +118,10 @@ export function KnowledgeScreen() {
           {sq.data && sq.data.length === 0 && (
             <div className="text-center mt-12 text-on-surface-variant font-code-sm uppercase tracking-widest opacity-50">0 matches found</div>
           )}
+        </div>
+
+        <div className="w-full max-w-3xl mt-16">
+          <NotesPanel />
         </div>
       </section>
 

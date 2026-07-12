@@ -10,5 +10,8 @@ export type Event = {
 };
 export type Project = { id: string; key: string; name: string; createdAt: string };
 export type Actor = { id: string; name: string; kind: string; role: string };
-export type Note = { id: string; actorId: string; body: string; scope: string; refId: string | null; indexed: boolean; createdAt: string };
+export type Note = {
+  id: string; actorId: string; body: string; title: string | null; scope: string; refId: string | null;
+  indexed: boolean; version: number; deletedAt: string | null; createdAt: string;
+};
 export type Hit = { content: string; sourceKind: string; sourceRef: string; score: number; citation: string };
