@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { McpConnectCard } from "./McpConnectCard";
 
 export function MCPTab() {
   const [serverUrl, setServerUrl] = useState("");
@@ -22,6 +23,10 @@ export function MCPTab() {
           <span className="material-symbols-outlined text-sm">add</span>
           Add Custom Server
         </button>
+      </div>
+
+      <div className="mb-8">
+        <McpConnectCard />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
