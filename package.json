@@ -13,7 +13,7 @@
     "ingest:sessions": "tsx src/ingest/sessions/cli.ts",
     "key": "tsx src/api/generate-key.ts",
     "dev": "tsx watch src/api/server.ts",
-    "mcp": "tsx src/mcp/server.ts",
+    "mcp": "tsx src/mcp/stdio.ts",
     "sync:github": "tsx src/sync/cli.ts",
     "build:sidecar": "node scripts/build-server.mjs --out app/src-tauri/resources/server && node scripts/fetch-node.mjs --target win-x64 && node scripts/fetch-node.mjs --target linux-x64",
     "build:sidecar:server": "node scripts/build-server.mjs",
