@@ -40,8 +40,11 @@ export function makeClaudeCodeSource(
           try {
             if (statSync(path).mtimeMs < cutoff) continue;
             const buf = readFileSync(path);
-            const text = extractText(buf.toString("utf8"));
+            let text = extractText(buf.toString("utf8"));
             if (!text) continue;
+            // ponytail: cap to the most recent 200k chars per session — full multi-MB
+            // transcripts bloat the index by GBs for little retrieval value; raise if needed.
+            if (text.length > 200_000) text = text.slice(-200_000);
             docs.push({ ref: path, text, hash: fileHashBytes(buf) });
           } catch (e) {
             console.warn(`transcript skipped ${path}: ${(e as Error).message}`);
