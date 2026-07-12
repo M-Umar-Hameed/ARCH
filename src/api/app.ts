@@ -3,7 +3,7 @@ import { auth } from "./auth.js";
 import { createTicket, updateTicket } from "../services/tickets.js";
 import { addComment, listComments } from "../services/comments.js";
 import { getTicket, getTicketHistory, listTickets, searchTickets } from "../services/history.js";
-import { saveNote } from "../services/notes.js";
+import { saveNote, updateNote, deleteNote, listNotes, getNote } from "../services/notes.js";
 import { searchKnowledge, getKnowledgeSource } from "../services/knowledge.js";
 import { AuthError, ConflictError, NotFoundError, StaleVersionError } from "../services/errors.js";
 import { listProjects, createProject } from "../services/projects.js";
@@ -57,8 +57,22 @@ app.post("/projects", async (c) => {
 app.get("/actors", async (c) => c.json(await listActors()));
 
 app.post("/notes", async (c) => {
-  const { body, scope, refId } = await c.req.json();
-  return c.json(await saveNote(c.get("actor").id, { body, scope, refId }), 201);
+  const { body, scope, refId, title } = await c.req.json();
+  return c.json(await saveNote(c.get("actor").id, { body, scope, refId, title }), 201);
+});
+app.get("/notes", async (c) => c.json(await listNotes({
+  scope: c.req.query("scope") as never, refId: c.req.query("refId"),
+  limit: Number(c.req.query("limit")) || undefined,
+})));
+app.get("/notes/:id", async (c) => c.json(await getNote(c.req.param("id"))));
+app.patch("/notes/:id", async (c) => {
+  const { expectedVersion, title, body } = await c.req.json();
+  return c.json(await updateNote(c.get("actor").id, c.req.param("id"), expectedVersion, { title, body }));
+});
+app.delete("/notes/:id", async (c) => {
+  const { expectedVersion } = await c.req.json().catch(() => ({}));
+  await deleteNote(c.get("actor").id, c.req.param("id"), Number(expectedVersion ?? c.req.query("expectedVersion")));
+  return c.json({ ok: true });
 });
 
 app.get("/knowledge", async (c) => {
