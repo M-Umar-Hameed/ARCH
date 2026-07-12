@@ -10,5 +10,7 @@ if (isEmbedded) {
   const { bootstrapped } = await runBootstrap(port);
   if (bootstrapped) console.log("first run: created Inbox project + owner key -> ~/.vibeops/credentials.json");
 }
-serve({ fetch: app.fetch, port });
+// Embedded (installed desktop) mode is loopback-only; external-Postgres deployments
+// legitimately serve other hosts.
+serve({ fetch: app.fetch, port, hostname: isEmbedded ? "127.0.0.1" : "0.0.0.0" });
 console.log(`api on :${port}${isEmbedded ? " (embedded db)" : ""}`);

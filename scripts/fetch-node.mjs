@@ -45,13 +45,14 @@ if (actual !== expected) {
 console.log(`checksum verified: ${fileName}`);
 
 if (target.startsWith("win")) {
+  // ponytail: `unzip` (Git for Windows / MSYS) — this machine's GNU tar can't read zip.
   execSync(`unzip -j "${archive}" "${name}/node.exe" -d "${outDir}"`, { stdio: "inherit" });
 } else {
   try {
-    execSync(`tar -xJf node.tar.xz ${name}/bin/node`, { stdio: "inherit", cwd: outDir, shell: true });
+    execSync(`tar -xJf node.tar.xz ${name}/bin/node`, { stdio: "inherit", cwd: outDir });
   } catch {
     console.log("tar -xJf failed, trying WSL fallback");
-    execSync(`wsl -e tar -xJf node.tar.xz ${name}/bin/node`, { stdio: "inherit", cwd: outDir, shell: true });
+    execSync(`wsl -e tar -xJf node.tar.xz ${name}/bin/node`, { stdio: "inherit", cwd: outDir });
   }
   renameSync(join(outDir, name, "bin", "node"), binPath);
   try { chmodSync(binPath, 0o755); } catch {}
