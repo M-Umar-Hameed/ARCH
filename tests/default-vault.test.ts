@@ -35,3 +35,13 @@ test("resolveVaultPath: setting wins, default otherwise", async () => {
     await db.delete(settings).where(eq(settings.key, "obsidian.vault_path"));
   }
 });
+
+test("resolveVaultPath: empty string setting falls back to default", async () => {
+  const home = mkdtempSync(join(tmpdir(), "vibeops-home-"));
+  await setSetting("obsidian.vault_path", "");
+  try {
+    expect(await resolveVaultPath(home)).toBe(join(home, ".vibeops", "vault"));
+  } finally {
+    await db.delete(settings).where(eq(settings.key, "obsidian.vault_path"));
+  }
+});

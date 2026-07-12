@@ -1,4 +1,7 @@
 import { expect, test } from "vitest";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { createActor } from "../src/services/actors.js";
 import { app } from "../src/api/app.js";
 
@@ -22,8 +25,9 @@ test("guarded routes: 403 for member, non-403 for admin", async () => {
     method: "PATCH", headers: adminH, body: JSON.stringify({ value: "x" }),
   })).status).toBe(200);
 
+  const tmpVault = mkdtempSync(join(tmpdir(), "authz-vault-"));
   expect((await app.request("/knowledge/obsidian/start", {
-    method: "POST", headers: adminH, body: JSON.stringify({}),
+    method: "POST", headers: adminH, body: JSON.stringify({ vaultPath: tmpVault }),
   })).status).toBe(200);
 
   expect((await app.request("/knowledge/obsidian/stop", {

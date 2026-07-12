@@ -55,6 +55,7 @@ export async function handleUnlink(path: string): Promise<void> {
 }
 
 let watcher: import("chokidar").FSWatcher | null = null;
+let starting = false;
 let lastSync: Date | null = null;
 let lastError: string | null = null;
 let vaultPath: string | null = null;
@@ -66,7 +67,7 @@ export function defaultVaultPath(homeDir = homedir()): string {
 
 // Resolution chain: explicit path (caller) > configured setting > default vault.
 export async function resolveVaultPath(homeDir?: string): Promise<string> {
-  return (await getSetting("obsidian.vault_path")) ?? defaultVaultPath(homeDir);
+  return (await getSetting("obsidian.vault_path")) || defaultVaultPath(homeDir);
 }
 
 export async function getVaultStatus() {
@@ -83,34 +84,39 @@ export async function getVaultStatus() {
 }
 
 export async function startWatcher(customPath?: string) {
-  if (watcher) return;
-  const dir = customPath ?? await resolveVaultPath();
-  // The default vault may not exist yet outside embedded bootstrap (external-PG
-  // mode); create it. Never create explicitly configured paths — typos should
-  // surface as errors, not empty vaults.
-  if (dir === defaultVaultPath()) mkdirSync(dir, { recursive: true });
-  vaultPath = dir;
-  lastError = null;
-  const embedder = getEmbedder();
+  if (watcher || starting) return;
+  starting = true;
   try {
-    await indexVaultOnce(dir, embedder);
-    lastSync = new Date();
-  } catch (e) {
-    lastError = (e as Error).message;
-  }
-  await sweepUnindexedNotes(embedder);
+    const dir = customPath ?? await resolveVaultPath();
+    // The default vault may not exist yet outside embedded bootstrap (external-PG
+    // mode); create it. Never create explicitly configured paths — typos should
+    // surface as errors, not empty vaults.
+    if (dir === defaultVaultPath()) mkdirSync(dir, { recursive: true });
+    vaultPath = dir;
+    lastError = null;
+    const embedder = getEmbedder();
+    try {
+      await indexVaultOnce(dir, embedder);
+      lastSync = new Date();
+    } catch (e) {
+      lastError = (e as Error).message;
+    }
+    await sweepUnindexedNotes(embedder);
 
-  const { default: chokidar } = await import("chokidar");
-  watcher = chokidar.watch(dir, { ignoreInitial: true });
-  const debounce = new Map<string, NodeJS.Timeout>();
-  const reindex = (path: string) => {
-    clearTimeout(debounce.get(path));
-    debounce.set(path, setTimeout(async () => {
-      try { await reindexFile(path, embedder); lastSync = new Date(); lastError = null; }
-      catch (e) { lastError = (e as Error).message; console.error(`ingest failed for ${path}:`, (e as Error).message); }
-    }, 300));
-  };
-  watcher.on("add", reindex).on("change", reindex).on("unlink", (p) => handleUnlink(p).catch(() => {}));
+    const { default: chokidar } = await import("chokidar");
+    watcher = chokidar.watch(dir, { ignoreInitial: true });
+    const debounce = new Map<string, NodeJS.Timeout>();
+    const reindex = (path: string) => {
+      clearTimeout(debounce.get(path));
+      debounce.set(path, setTimeout(async () => {
+        try { await reindexFile(path, embedder); lastSync = new Date(); lastError = null; }
+        catch (e) { lastError = (e as Error).message; console.error(`ingest failed for ${path}:`, (e as Error).message); }
+      }, 300));
+    };
+    watcher.on("add", reindex).on("change", reindex).on("unlink", (p) => handleUnlink(p).catch(() => {}));
+  } finally {
+    starting = false;
+  }
 }
 
 export async function stopWatcher() {

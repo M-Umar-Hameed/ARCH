@@ -11,6 +11,12 @@ import { createProject } from "./services/projects.js";
 export async function runBootstrap(
   port: number, dir = join(homedir(), ".vibeops"),
 ): Promise<{ bootstrapped: boolean }> {
+  // Owner-only permissions (like ~/.ssh). Effective on POSIX; on Windows the
+  // file inherits the user-profile ACL, which is already user-scoped. Must
+  // happen before any other mkdir under `dir`, or a later recursive mkdir
+  // without `mode` would create `dir` first and make this a no-op.
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+
   // The default vault (human markdown, auto-indexed) lives inside the backup
   // unit. Created every boot so pre-vault installs pick it up; the starter
   // note is seeded once and never overwritten.
