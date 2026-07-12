@@ -33,6 +33,18 @@ test("migrations + vector round-trip work on PGlite", async () => {
      where dim = 1024 order by embedding <=> $1::vector limit 1`, [vec]);
   expect((hit.rows as { content: string; score: number }[])[0].content).toBe("hello");
 
+  // The service uses Drizzle's tagged SQL rather than PGlite directly. Keep this
+  // exact result shape covered: PGlite returns a QueryResult object, not an array.
+  const { sql } = await import("drizzle-orm");
+  const serviceHit = await d.execute(sql`
+    select source_kind, source_ref, content,
+           1 - (embedding <=> ${vec}::vector) as score
+    from embeddings
+    where dim = ${1024}
+    order by embedding <=> ${vec}::vector
+    limit ${1}`);
+  expect((serviceHit as unknown as { rows: { content: string }[] }).rows[0].content).toBe("hello");
+
   await client.close();
   rmSync(dir, { recursive: true, force: true });
 });
