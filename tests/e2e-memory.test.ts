@@ -2,9 +2,9 @@ import { expect, test } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 import { db } from "../src/db/client.js";
-import { events } from "../src/db/schema.js";
+import { embeddings, events } from "../src/db/schema.js";
 import { createActor } from "../src/services/actors.js";
 import { saveNote } from "../src/services/notes.js";
 import { searchKnowledge } from "../src/services/knowledge.js";
@@ -12,6 +12,14 @@ import { indexVaultOnce, handleUnlink } from "../src/ingest/watch.js";
 import { FakeEmbedder } from "../src/knowledge/embedder.js";
 
 const emb = new FakeEmbedder(1024);
+
+// These tests accumulate one embedding row per run in the shared dev DB; with
+// thousands of stale rows the approximate hnsw search can miss the distance-0
+// match in a small top-k. Purge THIS file's rows from prior runs only — the
+// content markers are unique to these tests, so no other file's rows race.
+for (const marker of ["the staging DB password rotates monthly run-%", "# Firewall run-%"]) {
+  await db.delete(embeddings).where(like(embeddings.content, marker));
+}
 
 test("note saved by session A is retrievable by session B, and audited", async () => {
   const { actor: a } = await createActor({ name: "sessionA", kind: "agent" });
