@@ -66,7 +66,7 @@ export function LocalNodeTab({ rejected }: { rejected: boolean }) {
 
       <div className="space-y-6">
         <div className="glass-card p-6 md:p-8 rounded-2xl border border-white/5 relative overflow-hidden group hover:border-primary/30 transition-all duration-300">
-          <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
               <div>
                 <label className="text-xs font-code-sm text-on-surface-variant/70 mb-2 block flex items-center gap-2">
@@ -114,32 +114,34 @@ export function LocalNodeTab({ rejected }: { rejected: boolean }) {
                 </div>
               </div>
 
-              <div className="flex gap-4 mt-6">
+              <div className="flex flex-col gap-3 mt-6">
                 <button
-                  className="flex-1 py-3 rounded-lg border border-white/10 font-medium text-sm text-on-surface hover:bg-surface-container-highest hover:border-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  className="w-full py-3 rounded-lg border border-white/10 font-medium text-sm text-on-surface hover:bg-surface-container-highest hover:border-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                   onClick={detect}
                   disabled={testing}
                 >
                   <span className="material-symbols-outlined text-[18px]">radar</span>
                   Detect local node
                 </button>
-                <button
-                  className="flex-1 py-3 rounded-lg border border-white/10 font-medium text-sm text-on-surface hover:bg-surface-container-highest hover:border-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                  onClick={test}
-                  disabled={testing}
-                >
-                  <span className={`material-symbols-outlined text-[18px] ${testing ? 'animate-spin text-primary' : ''}`}>
-                    {testing ? 'refresh' : 'wifi_tethering'}
-                  </span>
-                  Test Link
-                </button>
-                <button 
-                  className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,219,233,0.3)] hover:shadow-[0_0_25px_rgba(0,219,233,0.5)]"
-                  onClick={save}
-                >
-                  <span className="material-symbols-outlined text-[18px]">save</span>
-                  Save Config
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 py-3 rounded-lg border border-white/10 font-medium text-sm text-on-surface hover:bg-surface-container-highest hover:border-white/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    onClick={test}
+                    disabled={testing}
+                  >
+                    <span className={`material-symbols-outlined text-[18px] ${testing ? 'animate-spin text-primary' : ''}`}>
+                      {testing ? 'refresh' : 'wifi_tethering'}
+                    </span>
+                    Test Link
+                  </button>
+                  <button 
+                    className="flex-1 py-3 rounded-lg bg-primary text-on-primary font-bold text-sm hover:brightness-110 active:scale-[0.98] transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,219,233,0.3)] hover:shadow-[0_0_25px_rgba(0,219,233,0.5)]"
+                    onClick={save}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">save</span>
+                    Save Config
+                  </button>
+                </div>
               </div>
             </div>
           </div>
