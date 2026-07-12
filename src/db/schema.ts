@@ -65,9 +65,12 @@ export const notes = pgTable("notes", {
   id: uuid("id").primaryKey().defaultRandom(),
   actorId: uuid("actor_id").notNull().references(() => actors.id),
   body: text("body").notNull(),
+  title: text("title"),
   scope: noteScope("scope").notNull(),
   refId: uuid("ref_id"),
   indexed: boolean("indexed").notNull().default(false),
+  version: integer("version").notNull().default(1),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
