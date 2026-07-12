@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { tickets } from "../../api/tickets.js";
 import { StatusBadge } from "../StatusBadge.js";
 
-export function TopBar() {
+export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -56,9 +56,15 @@ export function TopBar() {
   };
 
   return (
-    <header className="h-16 flex justify-between items-center px-margin-desktop bg-background/80 backdrop-blur-md border-b border-outline-variant z-40 relative">
-      <div className="relative" ref={containerRef}>
-        <div className="flex items-center gap-4 bg-surface-container-low px-4 py-1.5 rounded-lg border border-white/5 focus-within:ring-1 focus-within:ring-primary-container transition-all">
+    <header className="h-16 flex justify-between items-center px-4 md:px-margin-desktop bg-background/80 backdrop-blur-md border-b border-outline-variant z-40 relative">
+      <div className="flex items-center gap-2 md:gap-4 relative" ref={containerRef}>
+        <button 
+          className="md:hidden material-symbols-outlined text-on-surface hover:text-primary transition-colors p-1"
+          onClick={onMenuClick}
+        >
+          menu
+        </button>
+        <div className="hidden sm:flex items-center gap-4 bg-surface-container-low px-4 py-1.5 rounded-lg border border-white/5 focus-within:ring-1 focus-within:ring-primary-container transition-all">
           <span className="material-symbols-outlined text-on-surface-variant text-sm">search</span>
           <input 
             ref={searchInputRef}
@@ -129,8 +135,9 @@ export function TopBar() {
         )}
       </div>
       
-      <div className="flex items-center gap-6">
-        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">sensors</button>
+      <div className="flex items-center gap-4 md:gap-6">
+        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors sm:hidden">search</button>
+        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors hidden md:block">sensors</button>
         <button className="material-symbols-outlined text-on-surface-variant hover:text-primary relative transition-colors">
           notifications
           <span className="absolute top-0 right-0 w-2 h-2 bg-primary-fixed-dim rounded-full neon-pulse"></span>

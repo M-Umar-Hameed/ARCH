@@ -1,13 +1,13 @@
 import { Link, useLocation } from "@tanstack/react-router";
 
-export function Sidebar() {
+export function Sidebar({ isOpen = false, setIsOpen = (_v: boolean) => {} }) {
   const location = useLocation();
   const path = location.pathname;
 
   const isActive = (route: string) => path === route;
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-[280px] bg-surface-container/60 backdrop-blur-xl border-r border-white/10 flex flex-col py-6 z-50">
+    <aside className={`fixed left-0 top-0 h-full w-[280px] bg-surface-container/95 md:bg-surface-container/60 backdrop-blur-xl border-r border-white/10 flex flex-col py-6 z-50 transform transition-transform duration-300 md:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="px-6 mb-10">
         <h1 className="font-headline-md text-headline-md font-bold text-primary tracking-tighter">VibeOps</h1>
         <p className="font-code-label text-code-label text-on-surface-variant opacity-60">Terminal Access</p>
@@ -16,6 +16,7 @@ export function Sidebar() {
       <nav className="flex-1 space-y-1">
         <Link
           to="/"
+          onClick={() => setIsOpen(false)}
           className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 active:scale-[0.98] ${
             isActive("/")
               ? "border-l-2 border-primary-fixed-dim bg-primary-fixed-dim/5 text-primary-fixed-dim"
@@ -27,6 +28,7 @@ export function Sidebar() {
         </Link>
         <Link
           to="/create"
+          onClick={() => setIsOpen(false)}
           className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 active:scale-[0.98] ${
             isActive("/create")
               ? "border-l-2 border-primary-fixed-dim bg-primary-fixed-dim/5 text-primary-fixed-dim"
@@ -38,6 +40,7 @@ export function Sidebar() {
         </Link>
         <Link
           to="/knowledge"
+          onClick={() => setIsOpen(false)}
           className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 active:scale-[0.98] ${
             isActive("/knowledge")
               ? "border-l-2 border-primary-fixed-dim bg-primary-fixed-dim/5 text-primary-fixed-dim"
@@ -49,6 +52,7 @@ export function Sidebar() {
         </Link>
         <Link
           to="/settings"
+          onClick={() => setIsOpen(false)}
           className={`flex items-center gap-3 px-4 py-3 transition-all duration-200 active:scale-[0.98] ${
             isActive("/settings")
               ? "border-l-2 border-primary-fixed-dim bg-primary-fixed-dim/5 text-primary-fixed-dim"

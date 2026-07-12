@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ObsidianIntegrationCard } from "./ObsidianIntegrationCard.js";
 
 export function IntegrationsTab() {
   const [githubToken, setGithubToken] = useState("");
@@ -14,6 +15,8 @@ export function IntegrationsTab() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <ObsidianIntegrationCard />
+
         {/* GitHub Integration Card */}
         <div className="glass-card rounded-xl overflow-hidden border border-white/10 flex flex-col group hover:border-primary/30 transition-all duration-300">
           <div className="p-6 border-b border-white/5 bg-surface-container/30 flex items-center gap-4">

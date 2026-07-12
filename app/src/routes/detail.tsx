@@ -46,9 +46,9 @@ export function DetailScreen({ id }: { id: string }) {
   const t = tq.data!;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-gutter">
       {/* Center Content Area */}
-      <div className="col-span-1 lg:col-span-8 space-y-gutter border-r border-white/5 pr-4 lg:pr-8">
+      <div className="col-span-1 lg:col-span-8 space-y-4 lg:space-y-gutter lg:border-r border-white/5 pr-0 lg:pr-8 pb-8 lg:pb-0">
         {conflict && <div className="bg-error-container/20 border border-error p-4 rounded text-error text-sm font-code-sm">This ticket changed elsewhere — reloaded; please redo your edit and save again.</div>}
         {error && <div className="bg-error-container/20 border border-error p-4 rounded text-error text-sm font-code-sm">{error}</div>}
 
@@ -75,7 +75,7 @@ export function DetailScreen({ id }: { id: string }) {
               </select>
             </div>
           </div>
-          <h2 className="font-headline-lg text-headline-lg text-primary leading-tight">{t.title}</h2>
+          <h2 className="font-headline-md md:font-headline-lg text-headline-md md:text-headline-lg text-primary leading-tight">{t.title}</h2>
           
           {/* Metadata Bar */}
           <div className="flex flex-wrap items-center gap-6 py-4 border-y border-white/5">
@@ -146,7 +146,7 @@ export function DetailScreen({ id }: { id: string }) {
       </div>
 
       {/* Right Sidebar (Insights Panel) */}
-      <aside className="col-span-1 lg:col-span-4 space-y-gutter lg:sticky lg:top-0 lg:max-h-screen">
+      <aside className="col-span-1 lg:col-span-4 space-y-4 lg:space-y-gutter lg:sticky lg:top-0 lg:max-h-screen">
         <div className="glass-card rounded-xl p-6 space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="font-headline-md text-headline-md text-primary-fixed-dim flex items-center gap-2">

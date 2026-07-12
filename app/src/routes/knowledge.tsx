@@ -42,10 +42,10 @@ export function KnowledgeScreen() {
           {/* Large Search Bar */}
           <div className="relative group w-full">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary-fixed-dim to-secondary rounded-lg blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
-            <div className="relative flex items-center bg-surface-container-lowest border border-white/10 glow-border-primary px-6 py-5 rounded">
-              <span className="material-symbols-outlined text-primary-fixed-dim text-3xl mr-4">manage_search</span>
+            <div className="relative flex items-center bg-surface-container-lowest border border-white/10 glow-border-primary px-4 md:px-6 py-3 md:py-5 rounded">
+              <span className="material-symbols-outlined text-primary-fixed-dim text-2xl md:text-3xl mr-2 md:mr-4">manage_search</span>
               <input 
-                className="bg-transparent border-none text-headline-md font-headline-md w-full focus:ring-0 placeholder:text-outline/40 text-on-surface outline-none" 
+                className="bg-transparent border-none text-headline-sm md:text-headline-md font-headline-sm md:font-headline-md w-full focus:ring-0 placeholder:text-outline/40 text-on-surface outline-none" 
                 placeholder="Search Obsidian Vault..." 
                 type="text"
                 value={q}
@@ -55,7 +55,7 @@ export function KnowledgeScreen() {
                 }}
               />
               <button 
-                className="bg-primary-fixed-dim text-on-primary font-code-label px-4 py-2 rounded-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-[0_0_15px_rgba(0,219,233,0.3)] ml-4"
+                className="bg-primary-fixed-dim text-on-primary font-code-label px-3 md:px-4 py-2 rounded-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-[0_0_15px_rgba(0,219,233,0.3)] ml-2 md:ml-4 text-xs md:text-sm"
                 onClick={() => setSubmitted(q)}
               >
                 Scan
@@ -103,7 +103,7 @@ export function KnowledgeScreen() {
 
       {/* Terminal AI Side Panel for Creating Notes */}
       <div 
-        className={`fixed right-6 bottom-24 w-[380px] glass-card flex flex-col border border-white/10 shadow-2xl z-50 rounded-lg overflow-hidden transition-transform duration-500 ease-in-out ${terminalOpen ? 'translate-x-0' : 'translate-x-[420px]'}`}
+        className={`fixed right-4 md:right-6 bottom-20 md:bottom-24 w-[calc(100vw-32px)] md:w-[380px] glass-card flex flex-col border border-white/10 shadow-2xl z-50 rounded-lg overflow-hidden transition-transform duration-500 ease-in-out ${terminalOpen ? 'translate-x-0' : 'translate-x-[calc(100vw+32px)] md:translate-x-[420px]'}`}
       >
         <div className="p-4 bg-surface-container-high flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-2">
@@ -169,11 +169,11 @@ export function KnowledgeScreen() {
 
       {/* Terminal Toggle FAB */}
       <button 
-        className="fixed right-6 bottom-8 w-14 h-14 flex items-center justify-center bg-secondary text-on-secondary rounded-full shadow-[0_0_20px_rgba(207,92,255,0.4)] hover:scale-105 active:scale-95 transition-all z-40 cursor-pointer" 
+        className="fixed right-4 bottom-4 md:right-6 md:bottom-8 w-12 h-12 md:w-14 md:h-14 flex items-center justify-center bg-secondary text-on-secondary rounded-full shadow-[0_0_20px_rgba(207,92,255,0.4)] hover:scale-105 active:scale-95 transition-all z-40 cursor-pointer" 
         onClick={() => setTerminalOpen(!terminalOpen)}
         title="Save Note"
       >
-        <span className="material-symbols-outlined text-3xl">edit_note</span>
+        <span className="material-symbols-outlined text-2xl md:text-3xl">edit_note</span>
       </button>
       {/* Markdown Viewer Panel */}
       <div 

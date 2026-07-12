@@ -1,15 +1,27 @@
+import { useState } from "react";
 import { Outlet } from "@tanstack/react-router";
 import { Sidebar } from "../components/layout/Sidebar";
 import { TopBar } from "../components/layout/TopBar";
 import { ShortcutsPopup } from "../components/layout/ShortcutsPopup";
 
 export function Root() {
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
   return (
-    <div className="flex h-screen w-full relative">
-      <Sidebar />
-      <main className="ml-[280px] flex-1 flex flex-col h-screen overflow-hidden">
-        <TopBar />
-        <div className="flex-1 overflow-y-auto p-margin-desktop space-y-gutter terminal-scroll">
+    <div className="flex h-screen w-full relative overflow-hidden">
+      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
+      
+      {/* Mobile overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      <main className="md:ml-[280px] flex-1 flex flex-col h-screen overflow-hidden w-full transition-all duration-300">
+        <TopBar onMenuClick={() => setIsSidebarOpen(true)} />
+        <div className="flex-1 overflow-y-auto p-4 md:p-margin-desktop space-y-4 md:space-y-gutter terminal-scroll">
           <Outlet />
         </div>
       </main>

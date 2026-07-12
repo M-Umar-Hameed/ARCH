@@ -29,29 +29,29 @@ export function ListScreen() {
   return (
     <>
       {/* Filters */}
-      <div className="flex gap-4 mb-4">
-        <div className="relative">
-          <select className="bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 pr-8 text-xs text-on-surface appearance-none outline-none cursor-pointer focus:border-primary-fixed-dim" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <div className="relative w-full sm:w-auto">
+          <select className="w-full bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 pr-8 text-xs text-on-surface appearance-none outline-none cursor-pointer focus:border-primary-fixed-dim" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
             <option value="">All Projects</option>
             {projQ.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <span className="absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm opacity-50 pointer-events-none">expand_more</span>
         </div>
-        <div className="relative">
-          <select className="bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 pr-8 text-xs text-on-surface appearance-none outline-none cursor-pointer focus:border-primary-fixed-dim" value={status} onChange={(e) => setStatus(e.target.value)}>
+        <div className="relative w-full sm:w-auto">
+          <select className="w-full bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 pr-8 text-xs text-on-surface appearance-none outline-none cursor-pointer focus:border-primary-fixed-dim" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="">Any Status</option><option value="open">Open</option><option value="in_progress">In Progress</option><option value="closed">Closed</option>
           </select>
           <span className="absolute right-2 top-1/2 -translate-y-1/2 material-symbols-outlined text-sm opacity-50 pointer-events-none">expand_more</span>
         </div>
         <input 
-          className="bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 text-xs text-on-surface placeholder-on-surface-variant/50 flex-1 max-w-xs" 
+          className="bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 text-xs text-on-surface placeholder-on-surface-variant/50 w-full sm:flex-1 sm:max-w-xs" 
           placeholder="Filter active tickets..." 
           value={q} 
           onChange={(e) => setQ(e.target.value)} 
         />
       </div>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-gutter mb-gutter">
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-gutter mb-4 md:mb-gutter">
         <div className="glass-card p-6 flex flex-col justify-between group hover:border-primary-fixed-dim/30 transition-all glow-blue">
           <div className="flex justify-between items-start mb-4">
             <span className="text-on-surface-variant font-code-label text-xs uppercase tracking-widest">Active Tickets</span>
@@ -86,16 +86,16 @@ export function ListScreen() {
         </div>
       </section>
 
-      <section className="glass-card overflow-hidden mb-gutter">
-        <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center">
-          <h3 className="font-headline-md text-headline-md text-primary">Active Deployment Tickets</h3>
-          <Link to="/create" className="bg-primary-fixed-dim text-on-primary-fixed px-4 py-2 font-code-label text-code-label rounded-lg flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary-fixed-dim/20 cursor-pointer inline-flex">
+      <section className="glass-card overflow-hidden mb-4 md:mb-gutter">
+        <div className="px-4 md:px-6 py-4 border-b border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h3 className="font-headline-sm md:font-headline-md text-headline-sm md:text-headline-md text-primary">Active Deployment Tickets</h3>
+          <Link to="/create" className="bg-primary-fixed-dim text-on-primary-fixed px-4 py-2 font-code-label text-code-label rounded-lg flex items-center gap-2 hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary-fixed-dim/20 cursor-pointer inline-flex w-full sm:w-auto justify-center">
             <span className="material-symbols-outlined text-sm">add</span>
             NEW_TICKET
           </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left font-body-sm text-on-surface-variant">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left font-body-sm text-on-surface-variant min-w-[800px]">
             <thead className="bg-white/[0.02] font-code-label text-xs uppercase tracking-widest">
               <tr>
                 <th className="px-6 py-4 font-medium">ID</th>
@@ -149,7 +149,7 @@ export function ListScreen() {
         </div>
       </section>
 
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-gutter pb-margin-desktop">
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-gutter pb-24 md:pb-margin-desktop">
         <div className="lg:col-span-2 glass-card flex flex-col min-h-[300px]">
           <div className="px-4 py-2 bg-surface-container-highest/30 border-b border-white/5 flex items-center justify-between">
             <div className="flex gap-1.5">
@@ -202,9 +202,9 @@ export function ListScreen() {
         </div>
       </section>
 
-      <button className="fixed bottom-8 right-8 w-14 h-14 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-50 group cursor-pointer">
-        <span className="material-symbols-outlined group-hover:rotate-90 transition-transform">terminal</span>
-        <div className="absolute right-full mr-4 bg-surface-container px-3 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap text-xs font-code-label">
+      <button className="fixed bottom-4 right-4 md:bottom-8 md:right-8 w-12 h-12 md:w-14 md:h-14 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-50 group cursor-pointer">
+        <span className="material-symbols-outlined group-hover:rotate-90 transition-transform text-lg md:text-2xl">terminal</span>
+        <div className="absolute right-full mr-4 bg-surface-container px-3 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap text-xs font-code-label hidden md:block">
             OPEN_CONSOLE
         </div>
       </button>

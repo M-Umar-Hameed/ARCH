@@ -21,20 +21,20 @@ export function SettingsScreen() {
   return (
     <div className="max-w-6xl mx-auto pt-8 flex flex-col md:flex-row gap-8 h-[calc(100vh-8rem)]">
       {/* Settings Sidebar */}
-      <div className="w-full md:w-64 flex-shrink-0 space-y-2">
-        <h2 className="text-xs font-code-label text-on-surface-variant/60 uppercase tracking-wider mb-4 px-4">Settings Menu</h2>
+      <div className="w-full md:w-64 flex-shrink-0 flex md:block overflow-x-auto md:overflow-visible space-x-2 md:space-x-0 md:space-y-2 pb-2 md:pb-0 hide-scrollbar">
+        <h2 className="hidden md:block text-xs font-code-label text-on-surface-variant/60 uppercase tracking-wider mb-4 px-4">Settings Menu</h2>
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
+            className={`flex-shrink-0 md:w-full flex items-center gap-2 md:gap-3 px-4 py-2 md:py-3 rounded-lg text-sm font-medium transition-all ${
               activeTab === tab.id 
                 ? "bg-primary/10 text-primary border border-primary/20" 
                 : "text-on-surface-variant hover:bg-white/5 hover:text-on-surface border border-transparent"
             }`}
           >
-            <span className="material-symbols-outlined text-[20px]">{tab.icon}</span>
-            {tab.label}
+            <span className="material-symbols-outlined text-[18px] md:text-[20px]">{tab.icon}</span>
+            <span className="whitespace-nowrap">{tab.label}</span>
           </button>
         ))}
       </div>
