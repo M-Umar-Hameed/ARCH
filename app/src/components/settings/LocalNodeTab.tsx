@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { getSettings, saveSettings, detectLocalNode } from "../../settings.js";
 import { projects } from "../../api/projects.js";
+import { ActorsCard } from "./ActorsCard.js";
 
 export function LocalNodeTab({ rejected }: { rejected: boolean }) {
   const [baseUrl, setBaseUrl] = useState("http://localhost:8787");
@@ -160,6 +161,8 @@ export function LocalNodeTab({ rejected }: { rejected: boolean }) {
             </div>
           </div>
         </div>
+
+        <ActorsCard />
       </div>
     </div>
   );
