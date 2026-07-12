@@ -11,7 +11,8 @@ export function makeClaudeMemSource(
     source: "claude-mem",
     async listSessionDocs(sinceDays: number): Promise<SessionDoc[]> {
       if (!existsSync(dbPath)) return [];
-      const { DatabaseSync } = await import("node:sqlite");
+      // getBuiltinModule bypasses vite-node's transform, which fails to resolve node:sqlite imports
+      const { DatabaseSync } = process.getBuiltinModule("node:sqlite") as typeof import("node:sqlite");
       let db;
       try {
         db = new DatabaseSync(dbPath, { readOnly: true });
