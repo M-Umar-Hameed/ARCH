@@ -19,7 +19,7 @@ await build({
   format: "esm",
   target: "node20",
   outfile: join(outDir, "server.mjs"),
-  external: ["@electric-sql/pglite"],
+  external: ["@electric-sql/pglite", "@huggingface/transformers"],
   banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
   logLevel: "info",
 });
