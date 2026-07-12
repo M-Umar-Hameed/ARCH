@@ -4,40 +4,75 @@ import { join } from "node:path";
 import { fileHashBytes } from "../../services/knowledge.js";
 import type { SessionSource, SessionDoc } from "./source.js";
 
-// Antigravity's Agent Manager writes markdown artifacts (plans, task lists,
-// walkthroughs) under brain/<conversation>/; conversations proper are cloud-side.
-// Empty dirs are the normal state until an agent runs — stay silent then.
+// Antigravity's Agent Manager writes markdown artifacts (plans, task lists) under brain/<conversation>/
+// and conversation transcripts under brain/<conversation>/.system_generated/logs/transcript.jsonl
 const SUBDIRS = ["brain", "conversations"];
 const EXTS = [".md", ".txt"];
 
-function* walkText(dir: string): Generator<string> {
+function* walkFiles(dir: string): Generator<string> {
   let entries: string[];
   try { entries = readdirSync(dir); } catch { return; }
   for (const name of entries) {
     const path = join(dir, name);
     let st;
     try { st = statSync(path); } catch { continue; }
-    if (st.isDirectory()) yield* walkText(path);
-    else if (EXTS.some((e) => name.endsWith(e))) yield path;
+    if (st.isDirectory()) {
+      yield* walkFiles(path);
+    } else {
+      if (EXTS.some((e) => name.endsWith(e))) yield path;
+      if (name === "transcript.jsonl") yield path; // Add local transcripts!
+    }
   }
 }
 
+function parseTranscript(buf: Buffer): string {
+  const lines = buf.toString("utf8").trim().split("\n");
+  let out = "";
+  for (const line of lines) {
+    if (!line) continue;
+    try {
+      const step = JSON.parse(line);
+      if (step.type === "USER_INPUT") {
+        out += `\n### User\n${step.content}\n`;
+      } else if (step.type === "PLANNER_RESPONSE") {
+        out += `\n### Antigravity\n${step.content}\n`;
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+  return out.trim();
+}
+
 export function makeAntigravitySource(
-  rootDir = join(homedir(), ".gemini", "antigravity"),
+  rootDirs = [
+    join(homedir(), ".gemini", "antigravity"),
+    join(homedir(), ".gemini", "antigravity-cli"),
+    join(homedir(), ".gemini", "antigravity-ide")
+  ]
 ): SessionSource {
   return {
     source: "antigravity",
     async listSessionDocs(sinceDays: number): Promise<SessionDoc[]> {
       const cutoff = Date.now() - sinceDays * 24 * 3600 * 1000;
       const docs: SessionDoc[] = [];
-      for (const sub of SUBDIRS) {
-        const dir = join(rootDir, sub);
+      
+      for (const rootDir of rootDirs) {
+        for (const sub of SUBDIRS) {
+          const dir = join(rootDir, sub);
         if (!existsSync(dir)) continue;
-        for (const path of walkText(dir)) {
+        for (const path of walkFiles(dir)) {
           try {
             if (statSync(path).mtimeMs < cutoff) continue;
             const buf = readFileSync(path);
-            let text = buf.toString("utf8").trim();
+            
+            let text = "";
+            if (path.endsWith("transcript.jsonl")) {
+              text = parseTranscript(buf);
+            } else {
+              text = buf.toString("utf8").trim();
+            }
+            
             if (!text) continue;
             if (text.length > 200_000) text = text.slice(-200_000);
             docs.push({ ref: path, text, hash: fileHashBytes(buf) });
@@ -46,7 +81,8 @@ export function makeAntigravitySource(
           }
         }
       }
-      return docs;
-    },
+    }
+    return docs;
+  },
   };
 }
