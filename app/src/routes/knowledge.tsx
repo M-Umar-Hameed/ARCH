@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { knowledge } from "../api/knowledge.js";
 import { notes } from "../api/notes.js";
@@ -8,6 +8,7 @@ import { NotesPanel } from "../components/NotesPanel.js";
 
 export function KnowledgeScreen() {
   const nav = useNavigate();
+  const qc = useQueryClient();
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [activeSource, setActiveSource] = useState<{kind: string, ref: string, citation: string} | null>(null);
@@ -28,7 +29,7 @@ export function KnowledgeScreen() {
 
   const save = useMutation({
     mutationFn: () => notes.save({ body, scope, refId: scope === "global" ? undefined : refId }),
-    onSuccess: () => { setSaved(true); setBody(""); setTimeout(() => setSaved(false), 3000); },
+    onSuccess: () => { setSaved(true); setBody(""); setTimeout(() => setSaved(false), 3000); qc.invalidateQueries({ queryKey: ["notes"] }); },
   });
 
   const [syncResult, setSyncResult] = useState<string | null>(null);

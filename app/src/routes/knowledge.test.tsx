@@ -80,6 +80,17 @@ test("delete asks for confirmation then removes the note", async () => {
   await waitFor(() => expect(notesRemove).toHaveBeenCalledWith("n1", 1));
 });
 
+test("a failing delete shows the error message inline", async () => {
+  notesList.mockResolvedValue([note]);
+  notesRemove.mockRejectedValueOnce(new Error("network unreachable"));
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  render(wrap(<KnowledgeScreen />));
+  await waitFor(() => screen.getByText("First line"));
+  fireEvent.click(screen.getByText("First line"));
+  fireEvent.click(await screen.findByText("Delete"));
+  await waitFor(() => expect(screen.getByText("network unreachable")).toBeInTheDocument());
+});
+
 test("creating a note with a title calls notes.save", async () => {
   render(wrap(<KnowledgeScreen />));
   fireEvent.change(screen.getByPlaceholderText("Title (optional)"), { target: { value: "My title" } });

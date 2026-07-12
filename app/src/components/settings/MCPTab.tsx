@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { McpConnectCard } from "./McpConnectCard";
+import { McpConnectCard } from "./McpConnectCard.js";
 
 export function MCPTab() {
   const [serverUrl, setServerUrl] = useState("");
