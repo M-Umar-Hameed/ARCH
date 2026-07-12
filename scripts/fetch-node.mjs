@@ -1,7 +1,8 @@
-import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, chmodSync } from "node:fs";
+import { createWriteStream, existsSync, mkdirSync, renameSync, rmSync, chmodSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 
 const VERSION = "22.14.0";
 const arg = (name, dflt) => {
@@ -26,6 +27,22 @@ console.log(`downloading ${url}`);
 const res = await fetch(url);
 if (!res.ok) throw new Error(`download failed: ${res.status}`);
 await pipeline(res.body, createWriteStream(archive));
+
+// Supply-chain integrity: verify the archive against Node's published checksums
+// before anything from it ships inside the installer.
+const shaRes = await fetch(`${base}/SHASUMS256.txt`);
+if (!shaRes.ok) throw new Error(`checksum manifest download failed: ${shaRes.status}`);
+const manifest = await shaRes.text();
+const fileName = url.split("/").pop();
+const entry = manifest.split("\n").find((l) => l.trim().endsWith(fileName));
+if (!entry) throw new Error(`no checksum entry for ${fileName}`);
+const expected = entry.trim().split(/\s+/)[0];
+const actual = createHash("sha256").update(readFileSync(archive)).digest("hex");
+if (actual !== expected) {
+  rmSync(archive, { force: true });
+  throw new Error(`checksum mismatch for ${fileName}: expected ${expected}, got ${actual}`);
+}
+console.log(`checksum verified: ${fileName}`);
 
 if (target.startsWith("win")) {
   execSync(`unzip -j "${archive}" "${name}/node.exe" -d "${outDir}"`, { stdio: "inherit" });
