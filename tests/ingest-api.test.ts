@@ -8,7 +8,7 @@ test("REST: POST /ingest/sessions requires auth and returns per-source summary",
   const unauth = await app.request("/ingest/sessions", { method: "POST", body: "{}" });
   expect(unauth.status).toBe(401);
 
-  const { apiKey } = await createActor({ name: `ingest-api-${Date.now()}`, kind: "human" });
+  const { apiKey } = await createActor({ name: `ingest-api-${Date.now()}`, kind: "human", role: "admin" });
   const h = { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" };
 
   const res = await app.request("/ingest/sessions", {

@@ -5,9 +5,10 @@ import { addComment, listComments } from "../services/comments.js";
 import { getTicket, getTicketHistory, listTickets, searchTickets } from "../services/history.js";
 import { saveNote, updateNote, deleteNote, listNotes, getNote } from "../services/notes.js";
 import { searchKnowledge, getKnowledgeSource } from "../services/knowledge.js";
-import { AuthError, ConflictError, NotFoundError, StaleVersionError } from "../services/errors.js";
+import { AuthError, ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../services/errors.js";
 import { listProjects, createProject } from "../services/projects.js";
-import { listActors } from "../services/actors.js";
+import { listActors, createActor } from "../services/actors.js";
+import { requireAdmin } from "./auth.js";
 import { getSystemMetrics, getSystemLogs, getSystemTopology } from "../services/system.js";
 import { getSetting, setSetting } from "../services/settings.js";
 import { getVaultStatus, startWatcher, stopWatcher } from "../ingest/watch.js";
@@ -20,6 +21,7 @@ export const app = new Hono<{ Variables: { actor: Actor } }>();
 app.onError((err, c) => {
   if (err instanceof StaleVersionError) return c.json({ error: err.message }, 409);
   if (err instanceof AuthError) return c.json({ error: err.message }, 401);
+  if (err instanceof ForbiddenError) return c.json({ error: err.message }, 403);
   if (err instanceof NotFoundError) return c.json({ error: err.message }, 404);
   if (err instanceof ConflictError) return c.json({ error: err.message }, 409);
   return c.json({ error: "internal error" }, 500);
@@ -56,6 +58,13 @@ app.post("/projects", async (c) => {
   return c.json(await createProject({ key, name }), 201);
 });
 app.get("/actors", async (c) => c.json(await listActors()));
+app.post("/actors", requireAdmin, async (c) => {
+  const { name, kind, role } = await c.req.json().catch(() => ({}));
+  if (typeof name !== "string" || !name.trim()) return c.json({ error: "name required" }, 400);
+  if (kind !== "human" && kind !== "agent") return c.json({ error: "kind must be human|agent" }, 400);
+  if (role !== undefined && role !== "admin" && role !== "member") return c.json({ error: "role must be admin|member" }, 400);
+  return c.json(await createActor({ name: name.trim(), kind, role }), 201);
+});
 
 app.post("/notes", async (c) => {
   const { body, scope, refId, title } = await c.req.json();
@@ -100,25 +109,25 @@ app.get("/knowledge/source", async (c) => {
   return c.json({ text: await getKnowledgeSource(kind, ref) });
 });
 
-app.get("/settings/:key", async (c) => c.json({ value: await getSetting(c.req.param("key")) }));
-app.patch("/settings/:key", async (c) => {
+app.get("/settings/:key", requireAdmin, async (c) => c.json({ value: await getSetting(c.req.param("key")) }));
+app.patch("/settings/:key", requireAdmin, async (c) => {
   const { value } = await c.req.json();
   await setSetting(c.req.param("key"), value);
   return c.json({ ok: true });
 });
 
 app.get("/knowledge/obsidian", async (c) => c.json(await getVaultStatus()));
-app.post("/knowledge/obsidian/start", async (c) => {
+app.post("/knowledge/obsidian/start", requireAdmin, async (c) => {
   const body = await c.req.json().catch(() => ({}));
   await startWatcher(body.vaultPath);
   return c.json(await getVaultStatus());
 });
-app.post("/knowledge/obsidian/stop", async (c) => {
+app.post("/knowledge/obsidian/stop", requireAdmin, async (c) => {
   await stopWatcher();
   return c.json(await getVaultStatus());
 });
 
-app.post("/ingest/sessions", async (c) => {
+app.post("/ingest/sessions", requireAdmin, async (c) => {
   const { sinceDays } = await c.req.json().catch(() => ({}));
   const days = Number.isFinite(Number(sinceDays)) && Number(sinceDays) >= 0 ? Number(sinceDays) : 30;
   const { ingestSessions } = await import("../ingest/sessions/ingest.js");
@@ -134,7 +143,7 @@ app.post("/ingest/sessions", async (c) => {
 });
 
 app.get("/system/metrics", async (c) => c.json(await getSystemMetrics()));
-app.get("/system/logs", async (c) => c.json(await getSystemLogs()));
+app.get("/system/logs", requireAdmin, async (c) => c.json(await getSystemLogs()));
 app.get("/system/topology", async (c) => c.json(await getSystemTopology()));
 
 registerMcpRoutes(app);

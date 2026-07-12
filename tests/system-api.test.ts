@@ -3,7 +3,7 @@ import { createActor } from "../src/services/actors.js";
 import { app } from "../src/api/app.js";
 
 test("REST: retrieve system endpoints", async () => {
-  const { apiKey } = await createActor({ name: "sys", kind: "human" });
+  const { apiKey } = await createActor({ name: "sys", kind: "human", role: "admin" });
   const h = { Authorization: `Bearer ${apiKey}` };
 
   let res = await app.request("/system/metrics", { headers: h });
