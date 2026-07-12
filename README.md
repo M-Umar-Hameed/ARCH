@@ -127,10 +127,10 @@ Session ingestion indexes recent project context into the knowledge base, making
 
 Sources indexed:
 
-- **Claude Code transcripts** — from claude-mem observations in `~/.claudemem`
-- **Claude Code file history** — sessions from Claude Code runs, also in `~/.claudemem`
-- **Codex sessions** — markdown artifacts from `~/.codex/sessions`
-- **Antigravity agent artifacts** — plans, task lists, walkthroughs from `~/.gemini/antigravity/brain` and `conversations` (these appear only after Antigravity agent runs; empty directories are normal until first agent execution)
+- **Claude Code transcripts** — observations and sessions from `~/.claude/projects`
+- **Claude Memory** — memory snapshots from `~/.claude-mem/claude-mem.db`
+- **Codex sessions** — JSONL rollout files from `~/.codex/sessions` (user/agent message text extracted)
+- **Antigravity agent artifacts** — markdown and text artifacts (plans, task lists, walkthroughs) from `~/.gemini/antigravity/brain` and `conversations` (these appear only after Antigravity agent runs; empty directories are normal until first agent execution)
 
 Note: Session ingestion stores conversation text in the local knowledge database; tool output blocks are stripped before indexing, but secrets pasted directly into messages may be indexed. Run with `EMBED_PROVIDER=fake` for a dry run without embedding costs.
 

@@ -20,7 +20,9 @@ function extractText(raw: string): string {
 }
 
 function* walkJsonl(dir: string): Generator<string> {
-  for (const name of readdirSync(dir)) {
+  let entries: string[];
+  try { entries = readdirSync(dir); } catch { return; }
+  for (const name of entries) {
     const path = join(dir, name);
     let st;
     try { st = statSync(path); } catch { continue; }
