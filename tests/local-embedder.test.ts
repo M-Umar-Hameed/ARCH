@@ -20,7 +20,7 @@ describe("padTo", () => {
 });
 
 describe("getEmbedder default chain", () => {
-  const saved = { EMBED_PROVIDER: process.env.EMBED_PROVIDER, VOYAGE_API_KEY: process.env.VOYAGE_API_KEY };
+  const saved = { EMBED_PROVIDER: process.env.EMBED_PROVIDER, VOYAGE_API_KEY: process.env.VOYAGE_API_KEY, EMBED_MODEL: process.env.EMBED_MODEL };
   const restore = () => {
     for (const [k, v] of Object.entries(saved)) {
       if (v === undefined) delete process.env[k]; else process.env[k] = v;
@@ -28,17 +28,17 @@ describe("getEmbedder default chain", () => {
   };
 
   it("defaults to local with no env at all", () => {
-    delete process.env.EMBED_PROVIDER; delete process.env.VOYAGE_API_KEY;
+    delete process.env.EMBED_PROVIDER; delete process.env.VOYAGE_API_KEY; delete process.env.EMBED_MODEL;
     try { expect(getEmbedder()).toBeInstanceOf(LocalEmbedder); } finally { restore(); }
   });
 
   it("prefers voyage when only a key is set", () => {
-    delete process.env.EMBED_PROVIDER; process.env.VOYAGE_API_KEY = "k";
+    delete process.env.EMBED_PROVIDER; delete process.env.EMBED_MODEL; process.env.VOYAGE_API_KEY = "k";
     try { expect(getEmbedder().model).toBe("voyage-3"); } finally { restore(); }
   });
 
   it("explicit provider wins over the key", () => {
-    process.env.EMBED_PROVIDER = "fake"; process.env.VOYAGE_API_KEY = "k";
+    process.env.EMBED_PROVIDER = "fake"; delete process.env.EMBED_MODEL; process.env.VOYAGE_API_KEY = "k";
     try { expect(getEmbedder()).toBeInstanceOf(FakeEmbedder); } finally { restore(); }
   });
 });

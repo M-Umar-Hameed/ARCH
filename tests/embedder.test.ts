@@ -18,7 +18,13 @@ test("getEmbedder returns fake when EMBED_PROVIDER=fake", () => {
 });
 
 test("unknown model throws", () => {
-  process.env.EMBED_PROVIDER = "voyage";
-  process.env.EMBED_MODEL = "not-a-real-model";
-  expect(() => getEmbedder()).toThrow();
+  const saved = { EMBED_PROVIDER: process.env.EMBED_PROVIDER, EMBED_MODEL: process.env.EMBED_MODEL };
+  try {
+    process.env.EMBED_PROVIDER = "voyage";
+    process.env.EMBED_MODEL = "not-a-real-model";
+    expect(() => getEmbedder()).toThrow();
+  } finally {
+    if (saved.EMBED_PROVIDER === undefined) delete process.env.EMBED_PROVIDER; else process.env.EMBED_PROVIDER = saved.EMBED_PROVIDER;
+    if (saved.EMBED_MODEL === undefined) delete process.env.EMBED_MODEL; else process.env.EMBED_MODEL = saved.EMBED_MODEL;
+  }
 });
