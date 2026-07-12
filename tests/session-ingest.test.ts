@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { ingestSessions } from "../src/ingest/sessions/cli.js";
+import { ingestSessions } from "../src/ingest/sessions/ingest.js";
 import { searchKnowledge } from "../src/services/knowledge.js";
 import { FakeEmbedder } from "../src/knowledge/embedder.js";
 import type { SessionSource } from "../src/ingest/sessions/source.js";

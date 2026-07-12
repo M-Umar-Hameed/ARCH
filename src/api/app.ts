@@ -11,6 +11,7 @@ import { listActors } from "../services/actors.js";
 import { getSystemMetrics, getSystemLogs, getSystemTopology } from "../services/system.js";
 import { getSetting, setSetting } from "../services/settings.js";
 import { getVaultStatus, startWatcher, stopWatcher } from "../ingest/watch.js";
+import { getEmbedder } from "../knowledge/embedder.js";
 import type { Actor } from "../db/schema.js";
 import { registerMcpRoutes } from "./mcp-routes.js";
 
@@ -115,6 +116,21 @@ app.post("/knowledge/obsidian/start", async (c) => {
 app.post("/knowledge/obsidian/stop", async (c) => {
   await stopWatcher();
   return c.json(await getVaultStatus());
+});
+
+app.post("/ingest/sessions", async (c) => {
+  const { sinceDays } = await c.req.json().catch(() => ({}));
+  const days = Number.isFinite(Number(sinceDays)) && Number(sinceDays) >= 0 ? Number(sinceDays) : 30;
+  const { ingestSessions } = await import("../ingest/sessions/ingest.js");
+  const { makeClaudeMemSource } = await import("../ingest/sessions/claude-mem.js");
+  const { makeClaudeCodeSource } = await import("../ingest/sessions/claude-code.js");
+  const { makeCodexSource } = await import("../ingest/sessions/codex.js");
+  const { makeAntigravitySource } = await import("../ingest/sessions/antigravity.js");
+  const summary = await ingestSessions(
+    [makeClaudeMemSource(), makeClaudeCodeSource(), makeCodexSource(), makeAntigravitySource()],
+    getEmbedder(), days,
+  );
+  return c.json(summary);
 });
 
 app.get("/system/metrics", async (c) => c.json(await getSystemMetrics()));
