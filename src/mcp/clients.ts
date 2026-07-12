@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -52,12 +52,15 @@ export function installClientConfig(
   const backupPath = path + ".vibeops-backup";
   if (existsSync(path) && !existsSync(backupPath)) {
     copyFileSync(path, backupPath);
+    try { chmodSync(backupPath, 0o600); } catch { /* fs without POSIX modes */ }
   }
   const backedUp = existsSync(backupPath);
   const servers = (existing.mcpServers ?? {}) as Record<string, unknown>;
   servers.vibeops = spec.entry(url, apiKey);
   existing.mcpServers = servers;
-  mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, JSON.stringify(existing, null, 2) + "\n");
+  // These files carry the API key — same trust level as ~/.vibeops/credentials.json.
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  writeFileSync(path, JSON.stringify(existing, null, 2) + "\n", { mode: 0o600 });
+  try { chmodSync(path, 0o600); } catch { /* fs without POSIX modes */ }
   return { path, backedUp };
 }
