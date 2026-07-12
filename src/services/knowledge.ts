@@ -18,19 +18,26 @@ function vecLiteral(v: number[]): string {
   return `[${v.join(",")}]`;
 }
 
-export async function upsertVaultFile(path: string, text: string, embedder: Embedder, contentHash?: string): Promise<number> {
+export async function upsertSourceDoc(
+  kind: "vault" | "note" | "session", ref: string, text: string,
+  embedder: Embedder, contentHash?: string,
+): Promise<number> {
   const chunks = chunkMarkdown(text);
   const hash = contentHash ?? fileHash(text);
   await db.delete(embeddings)
-    .where(and(eq(embeddings.sourceKind, "vault"), eq(embeddings.sourceRef, path)));
+    .where(and(eq(embeddings.sourceKind, kind), eq(embeddings.sourceRef, ref)));
   if (chunks.length === 0) return 0;
   const vecs = await embedder.embed(chunks.map((c) => c.content));
   await db.insert(embeddings).values(chunks.map((c, i) => ({
-    sourceKind: "vault" as const, sourceRef: path, chunkIndex: c.index,
+    sourceKind: kind, sourceRef: ref, chunkIndex: c.index,
     content: c.content, embedding: vecs[i], model: embedder.model, dim: embedder.dim,
     contentHash: hash,
   })));
   return chunks.length;
+}
+
+export async function upsertVaultFile(path: string, text: string, embedder: Embedder, contentHash?: string): Promise<number> {
+  return upsertSourceDoc("vault", path, text, embedder, contentHash);
 }
 
 export async function deleteVaultFile(path: string): Promise<void> {

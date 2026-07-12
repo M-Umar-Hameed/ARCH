@@ -59,7 +59,7 @@ export const events = pgTable("events", {
 }));
 
 export const noteScope = pgEnum("note_scope", ["global", "project", "ticket"]);
-export const sourceKind = pgEnum("source_kind", ["vault", "note"]);
+export const sourceKind = pgEnum("source_kind", ["vault", "note", "session"]);
 
 export const notes = pgTable("notes", {
   id: uuid("id").primaryKey().defaultRandom(),
