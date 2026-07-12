@@ -9,6 +9,7 @@ import { AuthError, ConflictError, NotFoundError, StaleVersionError } from "../s
 import { listProjects, createProject } from "../services/projects.js";
 import { listActors } from "../services/actors.js";
 import { getSystemMetrics, getSystemLogs, getSystemTopology } from "../services/system.js";
+import { registerMcpRoutes } from "./mcp-routes.js";
 import type { Actor } from "../db/schema.js";
 
 export const app = new Hono<{ Variables: { actor: Actor } }>();
@@ -75,3 +76,5 @@ app.get("/knowledge/source", async (c) => {
 app.get("/system/metrics", async (c) => c.json(await getSystemMetrics()));
 app.get("/system/logs", async (c) => c.json(await getSystemLogs()));
 app.get("/system/topology", async (c) => c.json(await getSystemTopology()));
+
+registerMcpRoutes(app);
