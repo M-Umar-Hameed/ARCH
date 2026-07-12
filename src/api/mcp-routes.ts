@@ -18,7 +18,7 @@ export function registerMcpRoutes(app: Hono<AppEnv>): void {
   });
 
   app.post("/mcp/install", async (c) => {
-    const { client } = await c.req.json();
+    const { client } = await c.req.json().catch(() => ({}));
     if (client !== "cursor" && client !== "gemini") {
       return c.json({ error: `unknown client: ${String(client)}` }, 400);
     }
