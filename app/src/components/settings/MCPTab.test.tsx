@@ -17,9 +17,11 @@ beforeEach(() => {
   });
 });
 
-test("renders the connect card alongside the mock server grid", async () => {
+test("renders the connect card with no mock server grid", async () => {
   render(wrap(<MCPTab />));
   expect(screen.getByText("Connect an Agent")).toBeInTheDocument();
   await waitFor(() => expect(screen.getByText("http://localhost:8787/mcp")).toBeInTheDocument());
-  expect(screen.getByText("Figma Design System")).toBeInTheDocument();
+  expect(screen.queryByText("Figma Design System")).not.toBeInTheDocument();
+  expect(screen.queryByText("Add Custom Server")).not.toBeInTheDocument();
+  expect(screen.queryByText("Manual Connection")).not.toBeInTheDocument();
 });

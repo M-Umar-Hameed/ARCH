@@ -135,15 +135,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         )}
       </div>
       
-      <div className="flex items-center gap-4 md:gap-6">
-        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors sm:hidden">search</button>
-        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors hidden md:block">sensors</button>
-        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary relative transition-colors">
-          notifications
-          <span className="absolute top-0 right-0 w-2 h-2 bg-primary-fixed-dim rounded-full neon-pulse"></span>
-        </button>
-        <button className="material-symbols-outlined text-on-surface-variant hover:text-primary transition-colors">account_circle</button>
-      </div>
     </header>
   );
 }

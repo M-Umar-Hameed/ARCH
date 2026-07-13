@@ -63,26 +63,6 @@ export function Sidebar({ isOpen = false, setIsOpen = (_v: boolean) => {} }) {
           <span className="font-body-md">Settings</span>
         </Link>
       </nav>
-      
-      <div className="mt-auto border-t border-white/5 pt-6 space-y-1">
-        <a className="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-white/5 transition-all" href="#">
-          <span className="material-symbols-outlined">help_outline</span>
-          <span className="font-body-md">Support</span>
-        </a>
-        <a className="flex items-center gap-3 px-4 py-3 text-error/80 hover:bg-error/5 transition-all" href="#">
-          <span className="material-symbols-outlined">logout</span>
-          <span className="font-body-md">Logout</span>
-        </a>
-        <div className="px-4 mt-4 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-surface-container-highest border border-white/10 flex items-center justify-center overflow-hidden">
-            <span className="material-symbols-outlined text-on-surface-variant text-sm">person</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-on-surface">Admin_User</span>
-            <span className="text-[10px] text-primary-fixed-dim">ID: #0X77F</span>
-          </div>
-        </div>
-      </div>
     </aside>
   );
 }

@@ -1,11 +1,28 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "../../lib/api.js";
 import { ProviderCard } from "./ProviderCard.js";
 import { AIUsageTab } from "./AIUsageTab.js";
 
 type SubTab = "providers" | "usage";
+type Strategy = "cost" | "max";
 
 export function AIModelsTab() {
   const [activeTab, setActiveTab] = useState<SubTab>("providers");
+  const queryClient = useQueryClient();
+
+  const { data: strategy } = useQuery({
+    queryKey: ["settings", "ai.routing_strategy"],
+    queryFn: async () => {
+      const res = await api.get("/settings/ai.routing_strategy");
+      return (res.value as Strategy) || "cost";
+    },
+  });
+
+  const setStrategy = useMutation({
+    mutationFn: (value: Strategy) => api.patch("/settings/ai.routing_strategy", { value }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings", "ai.routing_strategy"] }),
+  });
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -48,11 +65,17 @@ export function AIModelsTab() {
               </h3>
               <p className="text-xs text-on-surface-variant mt-1">Automatically utilize whichever provider is available and control costs.</p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
               <label className="flex items-start gap-3 cursor-pointer group">
                 <div className="mt-0.5 relative flex items-center justify-center">
-                  <input type="radio" name="strategy" className="peer appearance-none w-4 h-4 rounded-full border border-white/20 checked:border-primary transition-all" defaultChecked />
+                  <input
+                    type="radio"
+                    name="strategy"
+                    className="peer appearance-none w-4 h-4 rounded-full border border-white/20 checked:border-primary transition-all"
+                    checked={(strategy ?? "cost") === "cost"}
+                    onChange={() => setStrategy.mutate("cost")}
+                  />
                   <div className="absolute w-2 h-2 rounded-full bg-primary opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                 </div>
                 <div>
@@ -63,7 +86,13 @@ export function AIModelsTab() {
 
               <label className="flex items-start gap-3 cursor-pointer group">
                 <div className="mt-0.5 relative flex items-center justify-center">
-                  <input type="radio" name="strategy" className="peer appearance-none w-4 h-4 rounded-full border border-white/20 checked:border-primary transition-all" />
+                  <input
+                    type="radio"
+                    name="strategy"
+                    className="peer appearance-none w-4 h-4 rounded-full border border-white/20 checked:border-primary transition-all"
+                    checked={strategy === "max"}
+                    onChange={() => setStrategy.mutate("max")}
+                  />
                   <div className="absolute w-2 h-2 rounded-full bg-primary opacity-0 peer-checked:opacity-100 transition-opacity"></div>
                 </div>
                 <div>
@@ -72,6 +101,7 @@ export function AIModelsTab() {
                 </div>
               </label>
             </div>
+            <p className="text-[11px] text-on-surface-variant/60 mt-1">Stored preference — automatic routing enforcement ships with the LLM proxy.</p>
           </div>
 
           <div className="space-y-6">

@@ -153,7 +153,6 @@ export function DetailScreen({ id }: { id: string }) {
               <span className="material-symbols-outlined">psychology</span>
               RAG Insights
             </h3>
-            <span className="material-symbols-outlined text-on-surface-variant text-sm cursor-pointer hover:text-primary transition-colors">refresh</span>
           </div>
 
           {/* Visual Knowledge Graph */}
@@ -167,16 +166,6 @@ export function DetailScreen({ id }: { id: string }) {
             <div className="absolute inset-0 p-4 flex flex-wrap gap-2 content-start opacity-0 group-hover:opacity-100 transition-opacity duration-500">
               <span className="bg-primary/10 border border-primary/20 text-[9px] px-2 py-0.5 rounded-full text-primary">ticket_{t.id.substring(0,4)}</span>
               <span className="bg-secondary/10 border border-secondary/20 text-[9px] px-2 py-0.5 rounded-full text-secondary">proj_{t.projectId}</span>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <p className="font-code-sm text-[11px] text-on-surface-variant uppercase opacity-50 tracking-wider">Suggested Solutions</p>
-            <div className="space-y-2">
-              <div className="p-3 bg-white/5 border-l-2 border-primary rounded-r hover:bg-white/10 transition-colors cursor-pointer">
-                <p className="text-sm font-semibold text-primary">Automated Response</p>
-                <p className="text-[11px] text-on-surface-variant leading-relaxed">System has indexed previous related issues. Confidence 84%</p>
-              </div>
             </div>
           </div>
 

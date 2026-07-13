@@ -201,13 +201,6 @@ export function ListScreen() {
           </div>
         </div>
       </section>
-
-      <button className="fixed bottom-4 right-4 md:bottom-8 md:right-8 w-12 h-12 md:w-14 md:h-14 bg-primary-container text-on-primary-container rounded-full flex items-center justify-center shadow-2xl hover:scale-110 active:scale-95 transition-all z-50 group cursor-pointer">
-        <span className="material-symbols-outlined group-hover:rotate-90 transition-transform text-lg md:text-2xl">terminal</span>
-        <div className="absolute right-full mr-4 bg-surface-container px-3 py-1.5 rounded-lg border border-white/10 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap text-xs font-code-label hidden md:block">
-            OPEN_CONSOLE
-        </div>
-      </button>
     </>
   );
 }

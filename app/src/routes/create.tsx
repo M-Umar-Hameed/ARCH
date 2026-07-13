@@ -159,7 +159,7 @@ export function CreateScreen() {
       </form>
 
       <div className="absolute bottom-4 left-8 pointer-events-none opacity-20">
-        <span className="font-code-sm text-[9px] uppercase tracking-tighter">Instance_ID: {Math.floor(Math.random() * 900) + 100}-VBO-{Math.floor(Math.random() * 90) + 10} | TS: {new Date().toISOString().substring(0, 19).replace('T', ' ')}</span>
+        <span className="font-code-sm text-[9px] uppercase tracking-tighter">TS: {new Date().toISOString().substring(0, 19).replace('T', ' ')}</span>
       </div>
     </div>
   );
