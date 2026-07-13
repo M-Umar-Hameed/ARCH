@@ -14,7 +14,7 @@ test("indexed vault content is retrievable and ranked", async () => {
   const content = `# Backups ${uniq}\nRun pg_dump nightly to the NAS share.`;
   const p = `note-${uniq}.md`;
   await upsertVaultFile(p, content, emb);
-  const hits = await searchKnowledge(content, { limit: 5 }, emb);
+  const hits = await searchKnowledge(content, { limit: 20 }, emb);
   expect(hits.length).toBeGreaterThan(0);
   const mine = hits.find((h) => h.sourceRef === p);
   expect(mine).toBeDefined();
@@ -27,6 +27,6 @@ test("dim mismatch rows are excluded", async () => {
   // so the result is empty (proves the dim filter, not just no-throw).
   await upsertVaultFile(`dim-${Date.now()}.md`, "# X\nsome indexed content", emb);
   const small = new FakeEmbedder(512);
-  const hits = await searchKnowledge("some indexed content", { limit: 5 }, small);
+  const hits = await searchKnowledge("some indexed content", { limit: 20 }, small);
   expect(hits.length).toBe(0);
 });

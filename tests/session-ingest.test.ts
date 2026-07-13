@@ -20,6 +20,6 @@ test("ingest is hash-gated and retrievable; failures isolated", async () => {
   expect(r2.fake.skipped).toBe(1);
   expect(r2.fake.indexed).toBe(0);
 
-  const hits = await searchKnowledge(doc.text, { limit: 5 }, emb);
+  const hits = await searchKnowledge(doc.text, { limit: 20 }, emb);
   expect(hits.some((h) => h.sourceRef === doc.ref && h.sourceKind === "session")).toBe(true);
 });

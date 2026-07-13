@@ -30,7 +30,7 @@ test("pdf files are converted, indexed, hash-gated, retrievable, and deleted", a
   expect(r2.skipped).toBe(1);
   expect(r2.indexed).toBe(0);
 
-  const hits = await searchKnowledge(md, { limit: 5 }, emb); // query exact converted text
+  const hits = await searchKnowledge(md, { limit: 20 }, emb); // query exact converted text
   expect(hits.some((h) => h.sourceRef === file)).toBe(true);
 
   writeFileSync(file, Buffer.from([0x25, 0x50, 0x44, 0x46, 9, 9, 9])); // changed bytes

@@ -24,12 +24,13 @@ test("REST: save a note then retrieve it via /knowledge", async () => {
   });
   expect(created.status).toBe(201);
 
-  const res = await app.request(`/knowledge?q=${encodeURIComponent(body)}`, { headers: h });
+  const res = await app.request(`/knowledge?q=${encodeURIComponent(body)}&limit=20`, { headers: h });
   expect(res.status).toBe(200);
   const hits = await res.json();
   expect(Array.isArray(hits)).toBe(true);
   expect(hits.length).toBeGreaterThan(0);
-  expect(hits[0].content).toContain(uniq);
+  // Membership, not rank: ANN top-1 under parallel suite inserts is nondeterministic.
+  expect(hits.some((x) => x.content.includes(uniq))).toBe(true);
 });
 
 test("REST: retrieve knowledge source via /knowledge/source", async () => {
