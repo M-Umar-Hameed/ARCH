@@ -1,6 +1,29 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 
+type AgentTokens = { inputTokens: number; outputTokens: number; totalTokens: number; sessions: number };
+type AgentInfo = {
+  agent: string;
+  connected: boolean;
+  account: string | null;
+  plan?: string | null;
+  authMode: string;
+  note?: string;
+  tokens: AgentTokens | null;
+};
+
+const AGENT_META: Record<string, { label: string; icon: React.ReactNode }> = {
+  claude: { label: "Claude Code", icon: <span className="font-serif italic text-xl text-[#D97757]">C</span> },
+  antigravity: { label: "Antigravity", icon: <span className="material-symbols-outlined text-xl text-[#4285F4]">memory</span> },
+  codex: { label: "Codex", icon: <span className="material-symbols-outlined text-xl text-white">psychology</span> },
+};
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
 export function AIUsageTab() {
   const { data: realUsageData, isLoading } = useQuery({
     queryKey: ["ai-usage"],
@@ -8,51 +31,12 @@ export function AIUsageTab() {
     queryFn: () => api.get("/system/ai-usage"),
   });
 
-  // Mock data for LLM usage to fulfill the UI requirement, acting as a fallback
-  const mockUsageData = [
-    {
-      id: "claude",
-      name: "Claude 3.5 Sonnet",
-      provider: "Anthropic",
-      icon: <span className="font-serif italic text-xl text-[#D97757]">C</span>,
-      color: "bg-[#D97757]",
-      textColor: "text-[#D97757]",
-      borderColor: "border-[#D97757]/30",
-      usage: 125000,
-      limit: 200000,
-      resetPeriod: "5 hours",
-      resetTime: "in 2h 15m",
-      type: "Rolling Limit"
-    },
-    {
-      id: "antigravity",
-      name: "Antigravity (Gemini 1.5)",
-      provider: "Google",
-      icon: <span className="material-symbols-outlined text-xl text-[#4285F4]">memory</span>,
-      color: "bg-[#4285F4]",
-      textColor: "text-[#4285F4]",
-      borderColor: "border-[#4285F4]/30",
-      usage: 1850000,
-      limit: 4000000,
-      resetPeriod: "Weekly",
-      resetTime: "in 3 days",
-      type: "Quota"
-    },
-    {
-      id: "codex",
-      name: "Codex / GPT-4o",
-      provider: "OpenAI",
-      icon: <span className="material-symbols-outlined text-xl text-white">psychology</span>,
-      color: "bg-white",
-      textColor: "text-white",
-      borderColor: "border-white/30",
-      usage: 845000,
-      limit: 1000000,
-      resetPeriod: "Weekly",
-      resetTime: "in 3 days",
-      type: "Quota"
-    }
-  ];
+  const { data: agentsData, isLoading: agentsLoading } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () => api.get("/system/agents"),
+  });
+  const agents: AgentInfo[] = agentsData?.agents ?? [];
+  const sinceDays = agentsData?.sinceDays ?? 7;
 
   const mockAgentData = {
     activeSessions: 3,
@@ -65,10 +49,8 @@ export function AIUsageTab() {
     ]
   };
 
-  const usageData = realUsageData?.usage?.length 
-    ? realUsageData.usage 
-    : mockUsageData;
-    
+  const usageLogs = realUsageData?.usage ?? [];
+
   const agentData = realUsageData?.agents?.length
     ? {
         activeSessions: realUsageData.agents.find((a: any) => a.status === 'active')?.count || 0,
@@ -81,8 +63,6 @@ export function AIUsageTab() {
 
   const totalTokens = realUsageData?.overview?.totalTokens ?? "2.87M";
   const totalCost = realUsageData?.overview?.totalCost ? `$${realUsageData.overview.totalCost.toFixed(2)}` : "$14.23";
-
-  const formatNumber = (num: number) => new Intl.NumberFormat('en-US').format(num);
 
   if (isLoading) {
     return <div className="text-on-surface-variant font-code-sm">Loading usage data...</div>;
@@ -158,67 +138,79 @@ export function AIUsageTab() {
         </div>
       </div>
 
-      <h3 className="font-code-sm uppercase tracking-widest text-on-surface-variant/70 text-xs mb-4 ml-1">Provider Token Quotas</h3>
+      <h3 className="font-code-sm uppercase tracking-widest text-on-surface-variant/70 text-xs mb-4 ml-1">Coding Agents</h3>
 
-      {/* Usage Cards */}
-      <div className="space-y-4">
-        {usageData.map((model: any, i: number) => {
-          const usage = Number(model.usage) || 0;
-          const limit = Number(model.limit) || 200000;
-          const percentUsed = Math.min(100, Math.round((usage / limit) * 100));
-          const isWarning = percentUsed > 85;
-          const isDanger = percentUsed > 95;
-          
-          let barColor = model.color || "bg-primary";
-          if (isDanger) barColor = "bg-red-500";
-          else if (isWarning) barColor = "bg-yellow-500";
-
-          return (
-            <div key={model.id || i} className={`glass-card rounded-xl p-6 border ${model.borderColor || "border-white/10"} relative overflow-hidden flex flex-col gap-4`}>
-              <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: isDanger ? '#ef4444' : isWarning ? '#eab308' : 'transparent' }}></div>
-              
-              <div className="flex justify-between items-start">
+      {/* Coding Agents — real accounts + observed tokens from /system/agents */}
+      <div className="space-y-3">
+        {agentsLoading ? (
+          <div className="text-on-surface-variant font-code-sm">Loading agents...</div>
+        ) : agents.length === 0 ? (
+          <div className="glass-card rounded-xl p-6 border border-white/5 text-on-surface-variant font-code-sm text-center">
+            No coding agents detected
+          </div>
+        ) : (
+          agents.map((agent) => {
+            const meta = AGENT_META[agent.agent] ?? {
+              label: agent.agent,
+              icon: <span className="material-symbols-outlined text-xl text-on-surface-variant">smart_toy</span>,
+            };
+            const accountLine = !agent.connected ? "Not connected" : agent.account || agent.note || "Signed in";
+            return (
+              <div key={agent.agent} className="glass-card rounded-xl p-5 border border-white/5 flex items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center border border-white/5">
-                    {model.icon || <span className="material-symbols-outlined text-primary">memory</span>}
+                    {meta.icon}
                   </div>
                   <div>
-                    <h4 className="font-headline-sm font-bold text-on-surface">{model.name || model.model}</h4>
-                    <p className="text-xs text-on-surface-variant">{model.provider} • {model.type || 'Quota'}</p>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-headline-sm font-bold text-on-surface">{meta.label}</h4>
+                      {agent.plan && (
+                        <span className="text-[10px] uppercase tracking-wide bg-white/10 text-on-surface-variant px-1.5 py-0.5 rounded">
+                          {agent.plan}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-on-surface-variant">{accountLine}</p>
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm font-bold text-on-surface">{percentUsed}% Used</div>
-                  <div className="text-xs text-on-surface-variant/70 mt-0.5">Resets {model.resetTime || 'Soon'}</div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-code-sm">
-                  <span className="text-on-surface-variant">{formatNumber(usage)} tokens</span>
-                  <span className="text-on-surface-variant">{formatNumber(limit)} limit ({model.resetPeriod || 'Rolling'})</span>
-                </div>
-                <div className="h-2.5 w-full bg-surface-container-highest rounded-full overflow-hidden border border-white/5">
-                  <div 
-                    className={`h-full ${barColor} transition-all duration-1000 ease-out rounded-full relative`}
-                    style={{ width: `${percentUsed}%` }}
-                  >
-                    <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
+                  <div className="text-sm font-bold text-on-surface font-code-sm">
+                    {agent.tokens ? formatTokens(agent.tokens.totalTokens) : "—"}
                   </div>
+                  {agent.tokens ? (
+                    <div className="text-[11px] text-on-surface-variant/70 font-code-sm mt-0.5">
+                      {formatTokens(agent.tokens.inputTokens)} in / {formatTokens(agent.tokens.outputTokens)} out
+                    </div>
+                  ) : (
+                    <div className="text-[11px] text-on-surface-variant/70 font-code-sm mt-0.5">last {sinceDays}d</div>
+                  )}
                 </div>
               </div>
+            );
+          })
+        )}
+      </div>
 
-              {isWarning && (
-                <div className={`mt-2 text-xs flex items-center gap-2 ${isDanger ? 'text-red-400' : 'text-yellow-400'}`}>
-                  <span className="material-symbols-outlined text-[16px]">warning</span>
-                  {isDanger 
-                    ? `Critical limit reached. Traffic will be routed to fallback providers.` 
-                    : `Approaching quota limit. Consider adjusting usage or falling back to local models.`}
-                </div>
-              )}
+      <p className="text-xs text-on-surface-variant/60 italic mt-3 ml-1">
+        Usage observed by VibeOps from local session logs. Provider quotas and reset limits live with each provider and aren't visible here.
+      </p>
+
+      <h3 className="font-code-sm uppercase tracking-widest text-on-surface-variant/70 text-xs mb-4 ml-1 mt-8">Logged AI Usage</h3>
+
+      {/* ai_usage_logs — honest empty state, no mock fallback */}
+      <div className="space-y-2">
+        {usageLogs.length === 0 ? (
+          <div className="glass-card rounded-xl p-6 border border-white/5 text-on-surface-variant font-code-sm text-center">
+            No usage logged yet
+          </div>
+        ) : (
+          usageLogs.map((row: any, i: number) => (
+            <div key={`${row.provider}-${row.model}-${i}`} className="glass-card rounded-lg p-4 border border-white/5 flex justify-between items-center text-sm">
+              <span className="text-on-surface">{row.provider} • {row.model}</span>
+              <span className="font-code-sm text-on-surface-variant">{formatTokens(Number(row.tokens) || 0)} tokens</span>
             </div>
-          );
-        })}
+          ))
+        )}
       </div>
 
     </div>

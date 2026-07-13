@@ -142,6 +142,8 @@ Sources indexed:
 
 Note: Session ingestion stores conversation text in the local knowledge database; tool output blocks are stripped before indexing, but secrets pasted directly into messages may be indexed. Run with `EMBED_PROVIDER=fake` for a dry run without embedding costs.
 
+The AI Models → Token Usage tab shows each coding agent's signed-in account and VibeOps-observed token usage from local session logs; provider-side quotas and reset limits are not visible to VibeOps.
+
 ## Graphify (agent-side knowledge graph)
 
 [Graphify](https://github.com/Graphify-Labs/graphify) (MIT) is an AI-assistant skill that turns a folder of code, schemas, docs, and papers into a queryable knowledge graph (GraphRAG, tree-sitter, Leiden clustering). It complements this server's `search_knowledge`:
