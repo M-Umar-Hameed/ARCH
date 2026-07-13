@@ -53,7 +53,8 @@ test("renders real accounts and observed tokens from /system/agents", async () =
   render(wrap(<AIUsageTab />));
 
   await waitFor(() => expect(screen.getByText("dev@example.com")).toBeInTheDocument());
-  expect(screen.getByText("1.3M")).toBeInTheDocument();
+  // "1.3M" renders both in the Overview total and the per-agent row.
+  expect(screen.getAllByText("1.3M").length).toBe(2);
   expect(screen.getByText("account not exposed locally")).toBeInTheDocument();
   expect(screen.getByText("Not connected")).toBeInTheDocument();
   expect(
@@ -72,4 +73,62 @@ test("shows an honest empty state instead of mock usage numbers", async () => {
   await waitFor(() => expect(screen.getByText("No usage logged yet")).toBeInTheDocument());
   expect(screen.queryByText(/Claude 3.5 Sonnet/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Provider Token Quotas/)).not.toBeInTheDocument();
+});
+
+test("Overview shows the real sum of observed agent tokens, not a fake total", async () => {
+  render(wrap(<AIUsageTab />));
+  await waitFor(() => expect(screen.getByText("Tokens observed (7d)")).toBeInTheDocument());
+  // 1,300,000 (claude) + 0 (antigravity/codex have no tokens) = 1.3M
+  // "1.3M" also appears in the per-agent Coding Agents row, so scope to the overview card.
+  expect(screen.getByText("Tokens observed (7d)").nextSibling?.textContent).toBe("1.3M");
+  expect(screen.queryByText("2.87M")).not.toBeInTheDocument();
+  expect(screen.queryByText(/vs last week/)).not.toBeInTheDocument();
+  expect(screen.queryByText("$14.23")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Cost-Optimized/)).not.toBeInTheDocument();
+});
+
+test("shows an honest empty state for agent sessions instead of mock 42/Top Agent Engines", async () => {
+  render(wrap(<AIUsageTab />));
+  await waitFor(() =>
+    expect(
+      screen.getByText(/No agent sessions recorded yet/),
+    ).toBeInTheDocument(),
+  );
+  expect(screen.queryByText("42")).not.toBeInTheDocument();
+  expect(screen.queryByText(/Top Agent Engines/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/Antigravity \(Gemini\)/)).not.toBeInTheDocument();
+});
+
+test("Overview sums tokens across multiple agents", async () => {
+  apiFetch.mockReset().mockImplementation((path: string) => {
+    if (path === "/system/agents") {
+      return Promise.resolve({
+        sinceDays: 7,
+        agents: [
+          {
+            agent: "claude",
+            connected: true,
+            account: "a@example.com",
+            authMode: "oauth",
+            tokens: { inputTokens: 500_000, outputTokens: 100_000, totalTokens: 600_000, sessions: 5 },
+          },
+          {
+            agent: "codex",
+            connected: true,
+            account: "b@example.com",
+            authMode: "oauth",
+            tokens: { inputTokens: 300_000, outputTokens: 100_000, totalTokens: 400_000, sessions: 3 },
+          },
+        ],
+      });
+    }
+    if (path === "/system/ai-usage") {
+      return Promise.resolve({ overview: {}, usage: [], agents: [] });
+    }
+    return Promise.resolve({});
+  });
+
+  render(wrap(<AIUsageTab />));
+  // 600,000 + 400,000 = 1,000,000 -> "1.0M"
+  await waitFor(() => expect(screen.getByText("1.0M")).toBeInTheDocument());
 });

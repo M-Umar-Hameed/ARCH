@@ -38,31 +38,18 @@ export function AIUsageTab() {
   const agents: AgentInfo[] = agentsData?.agents ?? [];
   const sinceDays = agentsData?.sinceDays ?? 7;
 
-  const mockAgentData = {
-    activeSessions: 3,
-    totalSessions7d: 42,
-    autonomouslyResolved: 18,
-    humanHandoffs: 24,
-    topAgents: [
-      { name: "Antigravity (Gemini)", sessions: 28, successRate: "45%" },
-      { name: "Codex (GPT-4o)", sessions: 14, successRate: "38%" }
-    ]
-  };
-
   const usageLogs = realUsageData?.usage ?? [];
+  const observedTotal = agents.reduce((s, a) => s + (a.tokens?.totalTokens ?? 0), 0);
 
-  const agentData = realUsageData?.agents?.length
+  const agentSessions = realUsageData?.agents ?? [];
+  const agentData = agentSessions.length
     ? {
-        activeSessions: realUsageData.agents.find((a: any) => a.status === 'active')?.count || 0,
-        totalSessions7d: realUsageData.agents.reduce((acc: number, a: any) => acc + Number(a.count), 0),
-        autonomouslyResolved: realUsageData.agents.find((a: any) => a.status === 'resolved')?.count || 0,
-        humanHandoffs: realUsageData.agents.find((a: any) => a.status === 'handoff')?.count || 0,
-        topAgents: mockAgentData.topAgents // Still mock this specific nested structure until the backend implements it
+        activeSessions: agentSessions.find((a: any) => a.status === 'active')?.count || 0,
+        totalSessions7d: agentSessions.reduce((acc: number, a: any) => acc + Number(a.count), 0),
+        autonomouslyResolved: agentSessions.find((a: any) => a.status === 'resolved')?.count || 0,
+        humanHandoffs: agentSessions.find((a: any) => a.status === 'handoff')?.count || 0,
       }
-    : mockAgentData;
-
-  const totalTokens = realUsageData?.overview?.totalTokens ?? "2.87M";
-  const totalCost = realUsageData?.overview?.totalCost ? `$${realUsageData.overview.totalCost.toFixed(2)}` : "$14.23";
+    : null;
 
   if (isLoading) {
     return <div className="text-on-surface-variant font-code-sm">Loading usage data...</div>;
@@ -71,72 +58,45 @@ export function AIUsageTab() {
   return (
     <div className="space-y-6 max-w-4xl animate-in fade-in duration-300">
       
-      {/* Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+      {/* Overview Stats — real sum of observed coding-agent tokens, no fake cost/strategy cards */}
+      <div className="grid grid-cols-1 gap-4 mb-8 max-w-xs">
         <div className="glass-card rounded-lg p-5 border border-white/5 flex flex-col gap-1">
-          <span className="text-xs text-on-surface-variant uppercase tracking-wider font-code-sm">Total Tokens (7d)</span>
-          <span className="text-2xl font-bold text-on-surface">{totalTokens}</span>
-          <span className="text-xs text-green-400 mt-1 flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">trending_down</span>
-            12% vs last week
-          </span>
-        </div>
-        <div className="glass-card rounded-lg p-5 border border-white/5 flex flex-col gap-1">
-          <span className="text-xs text-on-surface-variant uppercase tracking-wider font-code-sm">Est. Cost (7d)</span>
-          <span className="text-2xl font-bold text-on-surface">{totalCost}</span>
-          <span className="text-xs text-on-surface-variant/70 mt-1">Saved $5.40 via local fallback</span>
-        </div>
-        <div className="glass-card rounded-lg p-5 border border-white/5 flex flex-col gap-1 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl -mr-8 -mt-8"></div>
-          <span className="text-xs text-on-surface-variant uppercase tracking-wider font-code-sm">Active Strategy</span>
-          <span className="text-xl font-bold text-primary mt-1">Cost-Optimized</span>
-          <span className="text-xs text-on-surface-variant/70 mt-1">Auto-routing enabled</span>
+          <span className="text-xs text-on-surface-variant uppercase tracking-wider font-code-sm">Tokens observed ({sinceDays}d)</span>
+          <span className="text-2xl font-bold text-on-surface">{formatTokens(observedTotal)}</span>
         </div>
       </div>
 
-      {/* Autonomous Coding Agents Usage */}
+      {/* Autonomous Coding Agents Usage — from ai_usage_logs agent_sessions; no mock fallback */}
       <h3 className="font-code-sm uppercase tracking-widest text-on-surface-variant/70 text-xs mb-4 ml-1 mt-8">Autonomous Agents Usage</h3>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-        <div className="glass-card rounded-xl p-6 border border-white/5 flex flex-col gap-4">
-          <div className="flex justify-between items-center">
-            <h4 className="font-headline-sm font-bold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-secondary">smart_toy</span>
-              Agent Sessions (7d)
-            </h4>
-            <span className="bg-secondary/20 text-secondary text-xs font-bold px-2 py-1 rounded animate-pulse">
-              {agentData.activeSessions} Active Now
-            </span>
-          </div>
-          <div className="flex justify-between items-end mt-2">
-            <div>
-              <div className="text-3xl font-bold text-on-surface">{agentData.totalSessions7d}</div>
-              <div className="text-xs text-on-surface-variant mt-1">Total tasks delegated</div>
+      {agentData ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="glass-card rounded-xl p-6 border border-white/5 flex flex-col gap-4">
+            <div className="flex justify-between items-center">
+              <h4 className="font-headline-sm font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-secondary">smart_toy</span>
+                Agent Sessions (7d)
+              </h4>
+              <span className="bg-secondary/20 text-secondary text-xs font-bold px-2 py-1 rounded animate-pulse">
+                {agentData.activeSessions} Active Now
+              </span>
             </div>
-            <div className="text-right">
-              <div className="text-sm font-bold text-green-400">{agentData.autonomouslyResolved} Resolved</div>
-              <div className="text-sm font-bold text-yellow-400">{agentData.humanHandoffs} Handoffs</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="glass-card rounded-xl p-6 border border-white/5 flex flex-col gap-4">
-          <h4 className="font-headline-sm font-bold text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-on-surface-variant">leaderboard</span>
-            Top Agent Engines
-          </h4>
-          <div className="space-y-3 mt-1">
-            {agentData.topAgents.map(agent => (
-              <div key={agent.name} className="flex justify-between items-center text-sm">
-                <span className="text-on-surface-variant">{agent.name}</span>
-                <div className="flex gap-4">
-                  <span className="font-code-sm">{agent.sessions} runs</span>
-                  <span className="font-bold text-green-400 w-12 text-right">{agent.successRate}</span>
-                </div>
+            <div className="flex justify-between items-end mt-2">
+              <div>
+                <div className="text-3xl font-bold text-on-surface">{agentData.totalSessions7d}</div>
+                <div className="text-xs text-on-surface-variant mt-1">Total tasks delegated</div>
               </div>
-            ))}
+              <div className="text-right">
+                <div className="text-sm font-bold text-green-400">{agentData.autonomouslyResolved} Resolved</div>
+                <div className="text-sm font-bold text-yellow-400">{agentData.humanHandoffs} Handoffs</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="glass-card rounded-xl p-6 border border-white/5 text-on-surface-variant font-code-sm text-center mb-8">
+          No agent sessions recorded yet — VibeOps logs these once agent lifecycle tracking is enabled
+        </div>
+      )}
 
       <h3 className="font-code-sm uppercase tracking-widest text-on-surface-variant/70 text-xs mb-4 ml-1">Coding Agents</h3>
 
