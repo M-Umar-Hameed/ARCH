@@ -1,154 +1,98 @@
 # VibeOps
 
-A self-hosted ticketing engine with a built-in knowledge/RAG layer, reachable over REST and MCP so both humans and AI agents (Claude Code/Cowork, Gemini, Codex, Cursor) share one audited source of truth.
+**One audited brain for you and your AI agents.**
 
-- **Postgres** owns all ticket state, workflow, and an append-only audit trail — real transactions, optimistic concurrency (per-actor `version` locking), and per-actor API-key auth.
-- **pgvector** holds a rebuildable knowledge index: the Obsidian vault (markdown and PDF) plus writeable "memory" notes, searchable via one `search_knowledge` tool.
-- **One service layer** backs both a REST API and an MCP server, so every mutation — from a human in the desktop app or an AI agent over MCP — lands in the same audit trail.
-- A **Tauri desktop app** (`app/`) is a pure client over the REST API.
+VibeOps is a self-hosted ticketing engine with a built-in knowledge/RAG layer, reachable over REST and MCP — so a human in the desktop app and every AI coding agent you run (Claude Code, Codex, Gemini, Antigravity, Cursor) share the same tickets, the same searchable memory, and the same append-only audit trail.
+
+Vibecoding with multiple agents has a coordination problem: each agent starts cold, re-derives decisions the last one already made, and nothing records who did what. VibeOps fixes the substrate — shared state, shared memory, per-agent identity — and installs as a single file with zero configuration.
+
+## What it does
+
+**Tickets with integrity.** Real transactions, optimistic concurrency (version-locked updates return 409 instead of silently clobbering), and an append-only event log where every mutation is attributed to the actor that made it. Agents track multi-step work as tickets other agents can see, instead of private todo lists.
+
+**Knowledge that survives sessions.** A pgvector index over three layers, searchable through one `search_knowledge` tool from any connected agent:
+
+- **Your vault** — `~/.vibeops/vault` is created on first run and indexed automatically. Drop markdown or PDF files in, or open it as an Obsidian vault (Obsidian is optional; any editor works). Point one setting at an external vault instead if you have one.
+- **Notes** — a writeable document workspace (titled, versioned, audited, soft-deleted) agents use to persist decisions and gotchas.
+- **Session memory** — transcripts from Claude Code, claude-mem, Codex, and Antigravity are ingested so what one agent did is retrievable by every other agent.
+
+**Zero-key by default.** Embeddings run on a local ONNX model (all-MiniLM, ~23MB one-time download) — knowledge search works out of the box with no API key. Bring a Voyage key later if you want API-grade embeddings.
+
+**One-click agent connection.** VibeOps serves MCP over streamable HTTP from the same process. The MCP settings card writes Cursor and Gemini configs for you (with a backup of anything it touches) and hands you a ready `claude mcp add` command for Claude Code.
+
+**Per-agent identity and roles.** The bootstrap owner key is admin; mint a member key per agent from the Actors card. Members get the full collaborative work surface; only admins touch settings, provider keys, filesystem indexing, config writes, or key minting. The audit trail answers "which agent did this."
+
+**Honest observability.** The Token Usage tab shows each coding agent's signed-in account and its real token usage read from local session logs — and explicitly tells you what VibeOps cannot see (provider-side quotas and reset limits). No fabricated dashboards.
 
 ## Install (one file)
 
-Build the installer once (`npm run build:sidecar`, then `npm run tauri build` in `app/` — requires Rust; delete `app/src-tauri/resources/node` before a release build to force a fresh, checksum-verified Node download) and you get a single artifact per platform (NSIS `.exe` on Windows; `deb`/`AppImage` config on Linux). Installing and launching VibeOps:
+Grab or build the installer — a single artifact per platform (NSIS `.exe` on Windows; `deb`/`AppImage` configs for Linux):
 
-- The app spawns its own bundled server (portable Node + embedded database) on `127.0.0.1:8787` — unless something is already serving there (a dev server or another VibeOps instance), in which case it attaches instead of double-spawning.
-- First launch self-creates the Inbox project, an owner API key, and `~/.vibeops/credentials.json`; the app auto-connects.
-- Quitting the app stops the bundled server. A force-kill (Task Manager) can leave the server running; the next launch attaches to it instead of double-spawning. Data lives in `~/.vibeops` and is never touched by install or uninstall — backup/restore rules below apply unchanged.
-- Linux: the server payload is verified on Ubuntu (x64); deb/AppImage bundle configs are included. macOS config exists but is unverified.
+```bash
+npm run build:sidecar          # bundles the server + portable Node (sha256-verified)
+cd app && npm run tauri:build  # requires Rust
+```
 
-## Prerequisites (running from source)
+First launch self-creates everything: an embedded Postgres-compatible database (PGlite with pgvector), the Inbox project, an owner API key at `~/.vibeops/credentials.json`, and your vault. The app spawns its own bundled server on `127.0.0.1:8787` — or attaches if one is already running. Quitting the app stops it. `~/.vibeops` is never touched by install or uninstall.
 
-- Node 20+ and npm
+## Quick start (from source)
 
-**For standalone mode** — no additional prerequisites. The embedded database runs on first boot.
-
-**For Docker/Postgres mode** — Docker (Postgres 16 + pgvector) and optionally Java 11+ for PDF ingestion.
-
-## Quick start (standalone)
+Node 20+ is the only prerequisite for standalone mode:
 
 ```bash
 npm install
-npm run dev              # REST API on :8787
+npm run dev    # REST API on :8787 — embedded DB, migrations, bootstrap, vault, all automatic
 ```
 
-On first run, VibeOps boots an embedded PGlite database (pgvector included) in `~/.vibeops/data`, runs migrations from `drizzle/`, and creates an Inbox project with an owner actor. API credentials are written to `~/.vibeops/credentials.json` (mode 0600); the desktop app auto-detects them.
+The desktop app auto-detects credentials. `~/.vibeops` is the single backup unit: copy the folder to back up; restore it before first run on a new machine. Treat `credentials.json` like `~/.ssh`.
 
-No Docker, no environment variables, no setup — just run `npm run dev`.
+Useful scripts: `npm run ingest:sessions` (index recent agent sessions), `npm run ingest:watch` (standalone vault watcher), `npm run mcp` (stdio MCP server for external-Postgres setups), `npm test`.
 
-**Your vault:** `~/.vibeops/vault` is created on first run and indexed automatically. Drop `.md` or `.pdf` files into it, or open it as an Obsidian vault. To use an external vault instead, point `obsidian.vault_path` in Settings → Integrations to any folder — the setting always wins over the default.
+## Connect an agent
 
-- `npm run mcp` — start the MCP server; the app uses credentials from `~/.vibeops/credentials.json`.
-- `npm run ingest:watch` — watch the Obsidian vault and index it (uses `~/.vibeops/vault` by default, or set `VAULT_PATH` for a custom path; embedding uses a local model by default, or set `EMBED_PROVIDER` and its key for API-based embeddings; use `EMBED_PROVIDER=fake` for a no-network dry run).
-- `npm test` — server test suite. The desktop app has its own suite under `app/`.
+VibeOps serves MCP at `http://127.0.0.1:8787/mcp` (streamable HTTP, bearer-key auth — same key as REST). From the app: Settings → MCP Servers → the connect card writes Cursor/Gemini configs one-click and gives Claude Code users a copy-paste command. For scripting: `GET /mcp/config` returns per-client snippets; `POST /mcp/install` performs the write.
 
-### Factory reset
+Give each agent its own key (Settings → Local Node → Actors) so the audit trail can tell them apart, then generate that agent's MCP config by calling `GET /mcp/config` with the agent's key.
 
-Delete `~/.vibeops/data`:
-
-```bash
-rm -rf ~/.vibeops/data
-```
-
-On next `npm run dev`, the embedded database re-migrates and re-bootstraps (Inbox project + owner actor).
-
-### Backup & restore
-
-`~/.vibeops` is the single backup unit — database, credentials, and configuration live there.
-
-**Backup:** Copy the folder.
-```bash
-cp -r ~/.vibeops ~/backup-vibeops
-```
-
-**Restore:** Copy the folder onto a fresh machine BEFORE first run.
-```bash
-cp -r ~/backup-vibeops ~/.vibeops
-npm run dev
-```
-
-On boot, the app detects existing actors and skips bootstrap. Credentials are restored and auto-detected by the desktop app. Treat `~/.vibeops/credentials.json` like `~/.ssh` — it holds the plaintext API key.
-
-## Connect an agent (MCP)
-
-The sidecar serves MCP over streamable HTTP at `http://127.0.0.1:8787/mcp`, authenticated with the same API key as the REST API.
-
-The desktop app's MCP card (Settings) is the one-click path: Cursor and Gemini get their config file written automatically — any existing file is preserved as `<path>.vibeops-backup` before it's overwritten. Claude Code has no config file to write to, so the card instead gives you a `claude mcp add` command to copy and run.
-
-For scripting or a custom client, the same two endpoints back the card: `GET /mcp/config` returns the URL plus a ready-to-run command/snippet per client, and `POST /mcp/install` (`{ "client": "cursor" | "gemini" }`) performs the write.
-
-The legacy stdio server (`npm run mcp`) still works and remains the right choice for external-Postgres setups where the client runs on a different machine than the server.
-
-Note: installed client configs hold the API key in plaintext, same trust level as `~/.vibeops/credentials.json` — treat them accordingly.
-
-## Actors and roles
-
-Every API key belongs to an actor, and every mutation is attributed to one in the audit trail. Actors carry a role: the bootstrap owner key is `admin`; keys minted afterwards default to `member`. Members get the full collaborative work surface (tickets, comments, notes, knowledge search/save); only admins can read or change settings (which may hold provider API keys), control vault indexing, install MCP client configs, trigger session ingestion, read system logs, or mint new actors.
-
-Give each agent its own key instead of sharing the owner's: create one from the Actors card in Settings (or `POST /actors` as admin — the plaintext key is returned exactly once), then generate that agent's MCP config by calling `GET /mcp/config` with the agent's key. Per-agent keys make the audit trail answer "which agent did this" and cap the blast radius of a misbehaving one.
-
-## Advanced: external Postgres
-
-To use an external Postgres database (recommended for production), set `DATABASE_URL`:
-
-```bash
-export DATABASE_URL="postgresql://user:password@localhost:5433/vibeops"
-npm run db:vector        # create the pgvector extension (must run before db:push)
-npm run db:push          # create the schema
-npm run db:vector:index  # create the hnsw vector index
-npm run dev              # REST API on :8787
-```
-
-Copy `.env.example` to `.env` first. Postgres listens on host port **5433** (5432 is often taken by a native install).
-
-In external mode, the database does not auto-bootstrap — ensure you run the schema and index setup steps before starting the server. To reset, drop and recreate the schema.
+Make agents actually use the shared brain: add a few lines to your agent instructions (CLAUDE.md / AGENTS.md / GEMINI.md) — search knowledge before starting, save decisions after finishing, track multi-step work as tickets. This repo's `AGENTS.md` has the canonical block.
 
 ## Architecture
 
-**Database driver seam:** The server detects which database to use at boot:
+```text
+Desktop app (Tauri)  ──┐
+Claude Code / Cursor ──┤── REST + MCP ──► one service layer ──► Postgres (truth: tickets, notes,
+Codex / Gemini ────────┘    (bearer keys,      (transactions,       events, settings, actors)
+                             admin/member       audit, 409s)          │
+                             roles)                                   └─► pgvector (rebuildable
+                                                                           projection: vault, notes,
+Vault watcher ──────────── markdown / PDF ────────────────────────────────  session transcripts)
+Session ingestion ──────── Claude Code / claude-mem / Codex / Antigravity ┘
+```
 
-- `DATABASE_URL` is set → Postgres (external mode; respects `VITEST` for test suite via `:5433`)
-- `VITEST` is set (no `DATABASE_URL`) → Postgres at localhost:5433 (test suite)
-- Otherwise → PGlite embedded database in `~/.vibeops/data` (standalone mode)
+- **Truth vs. retrieval:** authoritative records live in Postgres tables; pgvector holds embeddings — a projection you can always rebuild, never the sole record.
+- **Database seam:** `DATABASE_URL` set → external Postgres; otherwise an embedded PGlite database in `~/.vibeops/data`. Same code, same migrations (additive-only, run at boot).
+- **One code path:** REST and MCP both route through the same service layer, so every mutation lands in the same audit trail no matter who made it.
 
-**Schema management:** Run `npm run db:generate` before adding migrations. The script runs `drizzle-kit generate` and outputs migration files to `drizzle/`. Migrations are additive-only — rollbacks are not supported.
+## Security model
 
-**PGlite version:** `@electric-sql/pglite` is pinned to `^0.2.x`. Version `0.5.x` and later split the vector extension into a separate package (`@electric-sql/pglite-vector`); stay on `0.2.x` for the bundled vector support.
+Local-first, single trust boundary: the embedded server binds loopback only; every request needs a bearer key; keys are stored as sha256 hashes; admin/member roles gate host-touching operations (settings, provider keys, filesystem indexing, MCP config writes, key minting, session ingestion). Written client configs and `credentials.json` hold plaintext keys with owner-only file permissions — same trust level as `~/.ssh`. Portable Node downloads are verified against the published sha256 manifest; the local embedding model is pinned to a specific revision.
 
-## Knowledge ingestion
+Session ingestion indexes conversation text from your own machine; tool output is stripped, but secrets pasted directly into chats can be indexed — treat the knowledge base accordingly.
 
-The vault watcher indexes both `.md` and `.pdf` files. Each file is chunked, embedded, and stored in pgvector with the file path as its citation; unchanged files are hash-gated and skipped on re-index, and deleting a file removes it from the index.
+## Advanced: external Postgres
 
-Knowledge search works with **no API key required by default**. When neither `EMBED_PROVIDER` nor `VOYAGE_API_KEY` is set, VibeOps uses a local embedding model (`all-MiniLM-L6-v2`, quantized ONNX via transformers.js) running entirely in-process. On first use, the model (~23 MB) downloads from the Hugging Face hub and caches in `~/.vibeops/models`; subsequent embedding operations work offline. While the initial download completes, embedding calls fail gracefully — notes remain unindexed and are swept on re-run. To opt into API-grade quality, set `VOYAGE_API_KEY` (Voyage is used automatically) or explicitly choose an `EMBED_PROVIDER`; explicit provider choice always takes precedence. Switching providers makes any notes embedded with the previous provider invisible to search (search filters by embedding dimension); migrate by re-ingesting. The `~/.vibeops/models` directory is part of the single backup unit and safe to delete — the model simply re-downloads on next run.
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5433/vibeops"
+npm run db:vector && npm run db:push && npm run db:vector:index
+npm run dev
+```
 
-### PDF ingestion (requires Java 11+)
+External mode serves all interfaces (for LAN/VPS use) and does not auto-bootstrap. The stdio MCP server (`npm run mcp`) is the right transport when agents run on a different machine than the server.
 
-PDF files are converted to markdown with [`@opendataloader/pdf`](https://github.com/opendataloader-project/opendataloader-pdf), which runs on the JVM. To ingest PDFs, install a JDK 11+ (e.g. from [Adoptium](https://adoptium.net/)) on the machine running `npm run ingest:watch`.
+## Knowledge ingestion details
 
-- Without a JVM, PDFs are skipped (with one startup warning) and markdown ingestion continues unaffected.
-- Each PDF conversion spawns a JVM process (slow), so unchanged PDFs are hash-gated on their raw bytes and skipped — only new or edited PDFs are re-converted.
+The vault watcher indexes `.md` and `.pdf` (PDF via a JVM-backed converter — needs Java 11+; without it PDFs are skipped with a warning). Files are hash-gated (unchanged files cost nothing on re-index) and deletions leave the index. Session ingestion (`npm run ingest:sessions` or the Sync button in the app) covers the last 30 days by default (`SESSIONS_SINCE_DAYS`), is hash-gated, and is safe to re-run. Run anything with `EMBED_PROVIDER=fake` for a no-network dry run.
 
-Conversion runs in local (deterministic) mode. Hybrid/OCR mode, JSON-with-bounding-boxes output, and PDF/UA accessibility export are out of scope for this integration.
+## License
 
-### Session memory (cross-tool history)
-
-Session ingestion indexes recent project context into the knowledge base, making it searchable across any connected tool. Run `npm run ingest:sessions` to ingest the last 30 days (or set `SESSIONS_SINCE_DAYS` to widen the window); re-runs are safe and skip unchanged sessions via content hash-gating. Indexed sessions are searchable via `search_knowledge` from any connected MCP client.
-
-Sources indexed:
-
-- **Claude Code transcripts** — observations and sessions from `~/.claude/projects`
-- **Claude Memory** — memory snapshots from `~/.claude-mem/claude-mem.db`
-- **Codex sessions** — JSONL rollout files from `~/.codex/sessions` (user/agent message text extracted)
-- **Antigravity agent artifacts** — markdown and text artifacts (plans, task lists, walkthroughs) from `~/.gemini/antigravity/brain` and `conversations` (these appear only after Antigravity agent runs; empty directories are normal until first agent execution)
-
-Note: Session ingestion stores conversation text in the local knowledge database; tool output blocks are stripped before indexing, but secrets pasted directly into messages may be indexed. Run with `EMBED_PROVIDER=fake` for a dry run without embedding costs.
-
-The AI Models → Token Usage tab shows each coding agent's signed-in account and VibeOps-observed token usage from local session logs; provider-side quotas and reset limits are not visible to VibeOps.
-
-## Graphify (agent-side knowledge graph)
-
-[Graphify](https://github.com/Graphify-Labs/graphify) (MIT) is an AI-assistant skill that turns a folder of code, schemas, docs, and papers into a queryable knowledge graph (GraphRAG, tree-sitter, Leiden clustering). It complements this server's `search_knowledge`:
-
-- **`search_knowledge`** (pgvector) — semantic similarity: "find docs about X".
-- **Graphify** — entity/relationship traversal: "what depends on X", "how does A connect to B".
-
-Graphify runs entirely on the agent machine (Claude Code / Codex / Gemini / Cursor). Install it there and point it at the Obsidian vault and this repo. The tickets server neither depends on nor invokes it — it is a parallel, agent-side capability. Evaluate its licensing and fit before relying on it in a workflow.
+[MIT](LICENSE)
