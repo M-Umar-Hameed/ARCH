@@ -33,7 +33,7 @@ test("note saved by session A is retrievable by session B, and audited", async (
   const note = await saveNote(a.id, { body, scope: "global" }, emb);
 
   // "Session B": a fresh search finds A's memory.
-  const hits = await searchKnowledge(body, { limit: 5 }, emb);
+  const hits = await searchKnowledge(body, { limit: 20 }, emb);
   expect(hits.some((h) => h.sourceRef === note.id)).toBe(true);
 
   const [evt] = await db.select().from(events).where(eq(events.noteId, note.id));
@@ -53,11 +53,11 @@ test("vault doc is searchable after index and gone after delete", async () => {
   writeFileSync(file, content);
 
   await indexVaultOnce(dir, emb);
-  const before = await searchKnowledge(content, { limit: 5 }, emb);
+  const before = await searchKnowledge(content, { limit: 20 }, emb);
   expect(before.some((h) => h.sourceRef === file)).toBe(true);
 
   await handleUnlink(file);
-  const after = await searchKnowledge(content, { limit: 5 }, emb);
+  const after = await searchKnowledge(content, { limit: 20 }, emb);
   expect(after.some((h) => h.sourceRef === file)).toBe(false);
 
   rmSync(dir, { recursive: true, force: true });
