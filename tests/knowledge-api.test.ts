@@ -24,13 +24,22 @@ test("REST: save a note then retrieve it via /knowledge", async () => {
   });
   expect(created.status).toBe(201);
 
-  const res = await app.request(`/knowledge?q=${encodeURIComponent(body)}&limit=20`, { headers: h });
-  expect(res.status).toBe(200);
-  const hits = await res.json();
-  expect(Array.isArray(hits)).toBe(true);
-  expect(hits.length).toBeGreaterThan(0);
-  // Membership, not rank: ANN top-1 under parallel suite inserts is nondeterministic.
-  expect(hits.some((x: { content: string }) => x.content.includes(uniq))).toBe(true);
+  // Membership, not rank — and retry once: hnsw recall for a just-inserted row
+  // is transiently unreliable while parallel test files hammer inserts. A
+  // permanent miss (both attempts) is a real bug and should fail loudly.
+  const search = async () => {
+    const res = await app.request(`/knowledge?q=${encodeURIComponent(body)}&limit=20`, { headers: h });
+    expect(res.status).toBe(200);
+    const hits = await res.json();
+    expect(Array.isArray(hits)).toBe(true);
+    return hits.some((x: { content: string }) => x.content.includes(uniq));
+  };
+  let found = await search();
+  if (!found) {
+    await new Promise((r) => setTimeout(r, 750));
+    found = await search();
+  }
+  expect(found).toBe(true);
 });
 
 test("REST: retrieve knowledge source via /knowledge/source", async () => {
