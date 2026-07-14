@@ -105,8 +105,16 @@ forge runs inside the sidecar and calls service functions directly.
 ### Routes (all admin-gated; mounted in app.ts)
 
 - `GET  /forge/agents` → `[{ name, roles }]` from relay.json (no cmd).
-- `POST /forge/pipeline` `{ ticketId, planAgent, workAgent, reviewAgent }` →
-  `{ runId }` (agents validated against config roles).
+- `GET  /forge/skills` → `[{ name }]` — skill names enumerated from
+  `~/.claude/skills/*/` and `<workdir>/.claude/skills/*/` (directory names
+  only; never-throw readdir). Feeds the UI's `/` autocomplete.
+- `POST /forge/pipeline` `{ ticketId, planAgent, workAgent, reviewAgent,
+  extraPrompt? }` → `{ runId }` (agents validated against config roles).
+  `extraPrompt` (≤10k chars) is operator guidance appended verbatim to the
+  plan and work prompts under an "Operator instructions:" header. Skill
+  shortcuts: a `/skill-name` token in extraPrompt passes through untouched —
+  Claude's CLI resolves its own skills headlessly; other CLIs read it as
+  plain instruction text.
 - `GET  /forge/runs` → active + recent runs (id, ticketId, stage, status,
   agents, timestamps — no output).
 - `GET  /forge/runs/:id/output?after=N` → `{ chunk, next, stage, status }`;
@@ -124,7 +132,9 @@ forge runs inside the sidecar and calls service functions directly.
 Single screen: left column = tickets grouped by status (open/planned/
 in_progress/review, review split visually into "in review" vs "PASS — awaiting
 promote"); right panel for the selected ticket = three agent dropdowns
-(plan/work/review, from `/forge/agents`), Run pipeline button, live console
+(plan/work/review, from `/forge/agents`), an operator prompt textarea (extra
+instructions for the run; typing `/` opens a skill-name autocomplete fed by
+`/forge/skills`, inserting `/skill-name` tokens), Run pipeline button, live console
 (1s output polling, autoscroll, stage markers styled), diff viewer (mono,
 scrollable), and Stop / Promote / Discard buttons gated by sandbox state +
 verdict. Uses the existing `app/src/lib/api.ts` verb facade (returns body
