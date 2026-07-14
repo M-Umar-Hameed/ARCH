@@ -30,7 +30,7 @@ test("REST: save a note then retrieve it via /knowledge", async () => {
   expect(Array.isArray(hits)).toBe(true);
   expect(hits.length).toBeGreaterThan(0);
   // Membership, not rank: ANN top-1 under parallel suite inserts is nondeterministic.
-  expect(hits.some((x) => x.content.includes(uniq))).toBe(true);
+  expect(hits.some((x: { content: string }) => x.content.includes(uniq))).toBe(true);
 });
 
 test("REST: retrieve knowledge source via /knowledge/source", async () => {
