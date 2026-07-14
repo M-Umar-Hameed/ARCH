@@ -1,0 +1,203 @@
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { execFileSync } from "node:child_process";
+import { startPipeline, getRunOutput, awaitRun } from "../src/forge/runs.js";
+import { sandboxExists } from "../src/forge/sandbox.js";
+import { createActor } from "../src/services/actors.js";
+import { createProject } from "../src/services/projects.js";
+import { createTicket } from "../src/services/tickets.js";
+import { updateTicket } from "../src/services/tickets.js";
+import { addComment, listComments } from "../src/services/comments.js";
+import { getTicket } from "../src/services/history.js";
+import { ConflictError } from "../src/services/errors.js";
+import type { RelayConfig } from "../src/relay/config.js";
+
+process.env.EMBED_PROVIDER = "fake";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const FAKE_AGENT = join(__dirname, "fixtures", "fake-agent.mjs");
+
+function initRepo(): string {
+  const dir = mkdtempSync(join(tmpdir(), "forge-run-base-"));
+  const g = (...a: string[]) => execFileSync("git", a, { cwd: dir });
+  g("init", "-b", "main");
+  g("config", "user.email", "t@t");
+  g("config", "user.name", "t");
+  writeFileSync(join(dir, "readme.md"), "base\n");
+  g("add", "-A");
+  g("commit", "-m", "base");
+  return dir;
+}
+
+function uniq(prefix: string) {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+async function seedTicket(title: string) {
+  const { actor } = await createActor({ name: uniq("forge-actor"), kind: "human" });
+  const project = await createProject({ key: uniq("forge-proj"), name: "Forge" });
+  const ticket = await createTicket(actor.id, { projectId: project.id, title });
+  return { actorId: actor.id, ticket };
+}
+
+let workdir: string;
+let sandboxRoot: string;
+let counterDir: string;
+let counterFile: string;
+
+beforeEach(() => {
+  workdir = initRepo();
+  sandboxRoot = mkdtempSync(join(tmpdir(), "forge-run-sbx-"));
+  process.env.VIBEOPS_SANDBOX_ROOT = sandboxRoot;
+  counterDir = mkdtempSync(join(tmpdir(), "forge-run-ctr-"));
+  counterFile = join(counterDir, "counter.txt");
+});
+
+afterEach(() => {
+  delete process.env.VIBEOPS_SANDBOX_ROOT;
+  delete process.env.FAKE_SCRIPT;
+  delete process.env.FAKE_COUNTER_FILE;
+  delete process.env.FAKE_WRITE;
+  rmSync(workdir, { recursive: true, force: true });
+  rmSync(sandboxRoot, { recursive: true, force: true });
+  rmSync(counterDir, { recursive: true, force: true });
+});
+
+function relayConfig(): RelayConfig {
+  return {
+    workdir,
+    agents: { fake: { cmd: [process.execPath, FAKE_AGENT, "{prompt}"], roles: ["plan", "work", "review"] } },
+  };
+}
+
+function setScript(script: string, write?: boolean): void {
+  process.env.FAKE_SCRIPT = script;
+  process.env.FAKE_COUNTER_FILE = counterFile;
+  if (write) process.env.FAKE_WRITE = "1";
+  else delete process.env.FAKE_WRITE;
+}
+
+describe("forge run manager", () => {
+  it("happy path: PASS leaves ticket in review awaiting promote", async () => {
+    const { actorId, ticket } = await seedTicket("Happy path");
+    setScript("plan,work,review-pass", true);
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    const finalTicket = await getTicket(ticket.id);
+    expect(finalTicket.status).toBe("review");
+
+    const comments = await listComments(ticket.id);
+    expect(comments.filter((c) => c.kind === "plan")).toHaveLength(1);
+    expect(comments.filter((c) => c.kind === "report")).toHaveLength(1);
+    const review = comments.filter((c) => c.kind === "review");
+    expect(review).toHaveLength(1);
+    expect(review[0].body).toContain("VERDICT: PASS");
+
+    expect(sandboxExists(ticket.id)).toBe(true);
+
+    const output = getRunOutput(runId, 0);
+    expect(output?.status).toBe("passed");
+    expect(output?.chunk).toContain("=== FORGE plan");
+    expect(output?.chunk).toContain("=== FORGE work");
+    expect(output?.chunk).toContain("=== FORGE review");
+  });
+
+  it("FAIL verdict bounces to planned, sandbox kept", async () => {
+    const { actorId, ticket } = await seedTicket("Fail path");
+    setScript("plan,work,review-fail");
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    expect(getRunOutput(runId, 0)?.status).toBe("passed");
+    expect((await getTicket(ticket.id)).status).toBe("planned");
+    expect(sandboxExists(ticket.id)).toBe(true);
+  });
+
+  it("worker process failure bounces to planned", async () => {
+    const { actorId, ticket } = await seedTicket("Exit path");
+    setScript("plan,exit");
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    expect(getRunOutput(runId, 0)?.status).toBe("failed");
+    expect((await getTicket(ticket.id)).status).toBe("planned");
+    const report = [...(await listComments(ticket.id))].reverse().find((c) => c.kind === "report");
+    expect(report?.body).toContain("worker failed");
+  });
+
+  it("second pipeline on the same ticket rejects with ConflictError", async () => {
+    const { actorId, ticket } = await seedTicket("Race path");
+    setScript("slow");
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await expect(startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    })).rejects.toThrow(ConflictError);
+
+    await awaitRun(runId);
+  }, 15_000);
+
+  it("planned ticket skips the plan stage", async () => {
+    const { actorId, ticket } = await seedTicket("Skip plan path");
+    await addComment(actorId, ticket.id, "seeded plan", "plan");
+    await updateTicket(actorId, ticket.id, ticket.version, { status: "planned" });
+    setScript("work,review-pass");
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    const output = getRunOutput(runId, 0);
+    expect(output?.chunk).not.toContain("=== FORGE plan");
+    const comments = await listComments(ticket.id);
+    expect(comments.filter((c) => c.kind === "plan")).toHaveLength(1);
+  });
+
+  it("output polling with offset", async () => {
+    const { actorId, ticket } = await seedTicket("Polling path");
+    setScript("plan,work,review-pass", true);
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    const full = getRunOutput(runId, 0);
+    expect(full?.chunk.length).toBeGreaterThan(0);
+    expect(full?.next).toBe(full?.chunk.length);
+
+    const empty = getRunOutput(runId, full!.next);
+    expect(empty?.chunk).toBe("");
+    expect(empty?.next).toBe(full!.next);
+  });
+
+  it("redaction applied to streamed output", async () => {
+    const { actorId, ticket } = await seedTicket("Leaky path");
+    setScript("leaky");
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    const output = getRunOutput(runId, 0);
+    expect(output?.chunk).toContain("[redacted]");
+    expect(output?.chunk).not.toContain("sk-abcdefghij0123456789");
+  });
+});
