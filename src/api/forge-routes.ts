@@ -7,7 +7,7 @@ import { loadRelayConfig } from "../relay/config.js";
 import { parseVerdict } from "../relay/prompts.js";
 import { startPipeline, listRuns, getRunOutput, stopRun } from "../forge/runs.js";
 import {
-  sandboxExists, branchName, sandboxDiff, promoteSandbox, discardSandbox,
+  sandboxExists, branchName, sandboxDiff, promoteSandbox, discardSandbox, assertTicketId,
 } from "../forge/sandbox.js";
 import { updateTicket } from "../services/tickets.js";
 import { getTicket } from "../services/history.js";
@@ -85,6 +85,17 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
 
   app.post("/forge/runs/:id/stop", requireAdmin, async (c) =>
     c.json({ stopped: stopRun(c.req.param("id")) }));
+
+  // Non-UUID ids are rejected by assertTicketId deep in sandbox.ts; surface
+  // that as 400 instead of a generic 500.
+  app.use("/forge/tickets/:id/*", async (c, next) => {
+    try {
+      assertTicketId(c.req.param("id"));
+    } catch {
+      return c.json({ error: "invalid ticket id" }, 400);
+    }
+    await next();
+  });
 
   app.get("/forge/tickets/:id/sandbox", requireAdmin, async (c) => {
     const ticketId = c.req.param("id");

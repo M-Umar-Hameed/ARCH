@@ -118,6 +118,14 @@ describe("forge API", () => {
     expect(res.status).toBe(404);
   });
 
+  it("forge ticket routes reject a non-uuid id with 400, not 500", async () => {
+    const h = await adminHeaders();
+    const res = await app.request("/forge/tickets/../../etc/sandbox", { headers: h });
+    expect([400, 404]).toContain(res.status);
+    const res2 = await app.request("/forge/tickets/not-a-uuid/sandbox", { headers: h });
+    expect(res2.status).toBe(400);
+  });
+
   it("pipeline runs end-to-end via output polling, then promote merges and closes the ticket", async () => {
     const h = await adminHeaders();
     const ticket = await seedTicket();

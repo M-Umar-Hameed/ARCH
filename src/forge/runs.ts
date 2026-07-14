@@ -119,7 +119,8 @@ async function pipeline(
     const res = await runAgent(agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + extra, config.workdir, onData);
     if (run.stopped) return settle(run, "stopped");
     if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed"); }
-    await addComment(actorId, ticket.id, res.output, "plan");
+    // Comments are the DURABLE record — redact them too, not just the console.
+    await addComment(actorId, ticket.id, redactSecrets(res.output), "plan");
     ticket = await updateTicket(actorId, ticket.id, ticket.version, { status: "planned" });
     plan = res.output;
   } else {
@@ -143,7 +144,7 @@ async function pipeline(
   if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
   if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
   await forgeCommit(ticket.id, ticket.title);
-  await addComment(actorId, ticket.id, workRes.output, "report");
+  await addComment(actorId, ticket.id, redactSecrets(workRes.output), "report");
   ticket = await updateTicket(actorId, ticket.id, ticket.version, { status: "review" });
 
   // review — against the sandbox branch diff
@@ -157,7 +158,7 @@ async function pipeline(
   );
   if (run.stopped) return settle(run, "stopped");
   const verdict = parseVerdict(reviewRes.output);
-  await addComment(actorId, ticket.id, verdict.raw, "review");
+  await addComment(actorId, ticket.id, redactSecrets(verdict.raw), "review");
   if (!verdict.pass) {
     // FAIL: back to planned; sandbox kept for the rework pass.
     await updateTicket(actorId, ticket.id, ticket.version, { status: "planned" });
@@ -174,7 +175,7 @@ function settle(run: Run, status: Status): void {
 async function bounce(run: Run, actorId: string, why: string, output: string): Promise<void> {
   try {
     const t = await getTicket(run.ticketId);
-    await addComment(actorId, t.id, `forge: ${why}\n\n${output.slice(0, 20_000)}`, "report");
+    await addComment(actorId, t.id, redactSecrets(`forge: ${why}\n\n${output.slice(0, 20_000)}`), "report");
     if (t.status === "in_progress") await updateTicket(actorId, t.id, t.version, { status: "planned" });
   } catch { /* never mask the original failure */ }
 }

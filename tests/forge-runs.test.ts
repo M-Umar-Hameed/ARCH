@@ -199,5 +199,10 @@ describe("forge run manager", () => {
     const output = getRunOutput(runId, 0);
     expect(output?.chunk).toContain("[redacted]");
     expect(output?.chunk).not.toContain("sk-abcdefghij0123456789");
+
+    // Comments are the durable record: they must be redacted too.
+    const comments = await listComments(ticket.id);
+    const bodies = comments.map((c) => c.body).join("\n");
+    expect(bodies).not.toContain("sk-abcdefghij0123456789");
   });
 });

@@ -135,6 +135,7 @@ export function ForgeScreen() {
         if (res.status !== "running") {
           setActiveRunId(null);
           if (selectedTicket) loadSandbox(selectedTicket.id);
+          loadTickets(); // ticket status moved server-side; refresh the columns
         }
       } catch (e: any) {
         if (!running) return;
