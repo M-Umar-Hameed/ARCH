@@ -5,11 +5,11 @@ const apiFetch = vi.fn();
 vi.mock("../api/client.js", () => ({ apiFetch: (...a: any[]) => apiFetch(...a) }));
 
 import { ForgeScreen } from "./forge.js";
-import React from "react";
 
 beforeEach(() => {
   apiFetch.mockReset();
-  vi.useFakeTimers();
+  // shouldAdvanceTime: waitFor polls on real timers; frozen clocks deadlock it.
+  vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
 afterEach(() => {
