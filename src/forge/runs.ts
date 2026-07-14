@@ -133,8 +133,12 @@ async function pipeline(
   ticket = await updateTicket(actorId, ticket.id, ticket.version, { status: "in_progress" });
   const sandbox = await ensureSandbox(config.workdir, ticket.id);
   const knowledge = await getKnowledgeSafe(ticket.title);
+  // Rework passes must see why the last review failed, or the worker repeats
+  // the same mistakes (live-hit on the first dogfood ticket).
+  const lastReview = [...(await listComments(ticket.id))].reverse().find((c) => c.kind === "review");
+  const findings = lastReview ? `\n\nPrevious review findings (address ALL of these):\n${lastReview.body}` : "";
   const workPrompt = composeWorkPrompt({ ticket, plan, knowledge, workdir: sandbox })
-    + NARRATION + "\n\nDo NOT run git commit; the supervisor commits for you." + extra;
+    + findings + NARRATION + "\n\nDo NOT run git commit; the supervisor commits for you." + extra;
   const workRes = await runAgent(agents.work, workPrompt, sandbox, onData);
   if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
   if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
