@@ -16,7 +16,7 @@ export function substituteCmd(cmd: string[], vars: Record<string, string>): stri
   );
 }
 
-function killTree(child: ChildProcess): void {
+export function killTree(child: ChildProcess): void {
   if (!child.pid) return;
   if (process.platform === "win32") {
     spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"]);
@@ -28,6 +28,7 @@ function killTree(child: ChildProcess): void {
 export async function runAgent(
   agent: RelayAgent, prompt: string, workdir: string,
   onData?: (chunk: string) => void,
+  onSpawn?: (child: ChildProcess) => void,
 ): Promise<{ ok: boolean; output: string }> {
   const promptFile = join(tmpdir(), `vibeops-relay-${randomUUID()}.txt`);
   const needsFile = agent.cmd.some((p) => p.includes("{promptFile}"));
@@ -43,6 +44,7 @@ export async function runAgent(
       // stdin ignored unless piping the prompt: headless CLIs (codex exec)
       // otherwise block reading an open stdin.
       const child = spawn(cmd0, rest, { cwd: workdir, stdio: [viaStdin ? "pipe" : "ignore", "pipe", "pipe"] });
+      onSpawn?.(child);
       if (viaStdin) {
         child.stdin?.on("error", () => {});
         child.stdin?.write(prompt);

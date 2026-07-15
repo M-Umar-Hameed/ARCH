@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
-import { startPipeline, getRunOutput, awaitRun } from "../src/forge/runs.js";
+import { startPipeline, getRunOutput, awaitRun, stopRun, listRuns } from "../src/forge/runs.js";
 import { sandboxExists } from "../src/forge/sandbox.js";
 import { createActor } from "../src/services/actors.js";
 import { createProject } from "../src/services/projects.js";
@@ -78,6 +78,15 @@ function setScript(script: string, write?: boolean): void {
   process.env.FAKE_COUNTER_FILE = counterFile;
   if (write) process.env.FAKE_WRITE = "1";
   else delete process.env.FAKE_WRITE;
+}
+
+async function waitForStage(runId: string, stage: string, timeoutMs = 5000): Promise<void> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (getRunOutput(runId, 0)?.stage === stage) return;
+    await new Promise((r) => setTimeout(r, 20));
+  }
+  throw new Error(`timed out waiting for stage "${stage}"`);
 }
 
 describe("forge run manager", () => {
@@ -204,5 +213,36 @@ describe("forge run manager", () => {
     const comments = await listComments(ticket.id);
     const bodies = comments.map((c) => c.body).join("\n");
     expect(bodies).not.toContain("sk-abcdefghij0123456789");
+  });
+
+  it("stop kills the in-flight work agent instead of waiting for its timeout", async () => {
+    const { actorId, ticket } = await seedTicket("Stop path");
+    setScript("plan,slow");
+
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+
+    await waitForStage(runId, "work");
+    expect(stopRun(runId)).toBe(true);
+    await awaitRun(runId);
+
+    expect(getRunOutput(runId, 0)?.status).toBe("stopped");
+    expect((await getTicket(ticket.id)).status).toBe("planned");
+    const summary = listRuns().find((r) => r.id === runId);
+    expect(summary?.finishedAt).toBeTruthy();
+  }, 15_000);
+
+  it("stopRun returns false for an unknown or already-settled run", async () => {
+    expect(stopRun("no-such-run")).toBe(false);
+
+    const { actorId, ticket } = await seedTicket("Already settled path");
+    setScript("plan,exit");
+    const { runId } = await startPipeline(actorId, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+
+    expect(stopRun(runId)).toBe(false);
   });
 });

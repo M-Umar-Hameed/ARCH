@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { ChildProcess } from "node:child_process";
 import type { RelayConfig, RelayAgent } from "../relay/config.js";
 import { composePlanPrompt, composeWorkPrompt, composeReviewPrompt, parseVerdict } from "../relay/prompts.js";
-import { runAgent } from "../relay/invoke.js";
+import { runAgent, killTree } from "../relay/invoke.js";
 import { redactSecrets } from "./redact.js";
 import { ensureSandbox, forgeCommit, sandboxDiff } from "./sandbox.js";
 import { updateTicket } from "../services/tickets.js";
@@ -34,7 +34,7 @@ type Run = {
   id: string; ticketId: string; stage: Stage; status: Status;
   agents: { plan: string; work: string; review: string };
   output: string; startedAt: string; finishedAt?: string;
-  child?: ChildProcess; // unused v1 (stop kills via flag); reserved
+  child?: ChildProcess; // the in-flight agent CLI for the current stage, if any
   stopped: boolean;
   done: Promise<void>;
 };
@@ -116,7 +116,11 @@ async function pipeline(
   if (ticket.status === "open") {
     append(run, `=== FORGE plan (${run.agents.plan}) ===\n`);
     const knowledge = await getKnowledgeSafe(ticket.title);
-    const res = await runAgent(agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + extra, config.workdir, onData);
+    const res = await runAgent(
+      agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + extra, config.workdir, onData,
+      (child) => { run.child = child; },
+    );
+    run.child = undefined;
     if (run.stopped) return settle(run, "stopped");
     if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed"); }
     // Comments are the DURABLE record — redact them too, not just the console.
@@ -140,7 +144,8 @@ async function pipeline(
   const findings = lastReview ? `\n\nPrevious review findings (address ALL of these):\n${lastReview.body}` : "";
   const workPrompt = composeWorkPrompt({ ticket, plan, knowledge, workdir: sandbox })
     + findings + NARRATION + "\n\nDo NOT run git commit; the supervisor commits for you." + extra;
-  const workRes = await runAgent(agents.work, workPrompt, sandbox, onData);
+  const workRes = await runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; });
+  run.child = undefined;
   if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
   if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
   await forgeCommit(ticket.id, ticket.title);
@@ -155,7 +160,9 @@ async function pipeline(
     agents.review,
     composeReviewPrompt({ ticket, plan, report: workRes.output, diff }),
     config.workdir, onData,
+    (child) => { run.child = child; },
   );
+  run.child = undefined;
   if (run.stopped) return settle(run, "stopped");
   const verdict = parseVerdict(reviewRes.output);
   await addComment(actorId, ticket.id, redactSecrets(verdict.raw), "review");
@@ -204,7 +211,8 @@ export function getRunOutput(id: string, after: number) {
 export function stopRun(id: string): boolean {
   const r = runs.get(id);
   if (!r || r.status !== "running") return false;
-  r.stopped = true; // checked between stages; the in-flight agent finishes or times out
+  r.stopped = true; // checked between stages so a running stage still lands on "stopped"
+  if (r.child) killTree(r.child);
   return true;
 }
 
