@@ -124,6 +124,15 @@ export async function getKnowledgeSource(kind: string, ref: string): Promise<str
     } catch (e: any) {
       return `Error: DB query failed: ${e.message}`;
     }
+  } else if (kind === "session") {
+    // Ingested sessions have no source file to read back; the indexed chunks
+    // ARE the source. Reassemble them in order.
+    const rows = await db.select({ content: embeddings.content })
+      .from(embeddings)
+      .where(and(eq(embeddings.sourceKind, "session"), eq(embeddings.sourceRef, ref)))
+      .orderBy(embeddings.chunkIndex);
+    if (!rows.length) return `Error: Session ${ref} not found in the index.`;
+    return rows.map((r) => r.content).join("\n\n");
   }
   return `Error: Unknown source kind ${kind}`;
 }

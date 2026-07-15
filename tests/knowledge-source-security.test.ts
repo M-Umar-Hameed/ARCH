@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { getKnowledgeSource, upsertVaultFile } from "../src/services/knowledge.js";
+import { getKnowledgeSource, upsertVaultFile, upsertSourceDoc } from "../src/services/knowledge.js";
 import { FakeEmbedder } from "../src/knowledge/embedder.js";
 
 const emb = new FakeEmbedder(1024);
@@ -12,6 +12,14 @@ test("vault source refuses paths that are not in the knowledge index", async () 
   const out = await getKnowledgeSource("vault", secret);
   expect(out).toContain("not an indexed vault source");
   expect(out).not.toContain("\"dependencies\"");
+});
+
+test("session source reassembles indexed chunks (no file to read back)", async () => {
+  const ref = `test-session-${Date.now()}`;
+  await upsertSourceDoc("session", ref, "# Session\nagent said session-body-alpha", emb);
+  const out = await getKnowledgeSource("session", ref);
+  expect(out).toContain("session-body-alpha");
+  expect(await getKnowledgeSource("session", "no-such-session")).toContain("not found");
 });
 
 test("vault source serves an indexed ref", async () => {
