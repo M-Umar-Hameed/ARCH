@@ -144,6 +144,9 @@ describe("forge API", () => {
     const final = await pollUntilDone(h, runId);
     expect(final.status).toBe("passed");
 
+    const runsAfter = await app.request("/forge/runs", { headers: h });
+    expect((await runsAfter.json()).some((r: { id: string }) => r.id === runId)).toBe(true);
+
     const sandboxRes = await app.request(`/forge/tickets/${ticket.id}/sandbox`, { headers: h });
     const sandboxBody = await sandboxRes.json();
     expect(sandboxBody).toEqual({ exists: true, branch: `forge/${ticket.id}`, lastVerdict: "pass" });

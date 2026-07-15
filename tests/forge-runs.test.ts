@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
+import { eq } from "drizzle-orm";
 import { startPipeline, getRunOutput, awaitRun, stopRun, listRuns } from "../src/forge/runs.js";
 import { sandboxExists } from "../src/forge/sandbox.js";
 import { createActor } from "../src/services/actors.js";
@@ -13,6 +14,8 @@ import { updateTicket } from "../src/services/tickets.js";
 import { addComment, listComments } from "../src/services/comments.js";
 import { getTicket } from "../src/services/history.js";
 import { ConflictError } from "../src/services/errors.js";
+import { db } from "../src/db/client.js";
+import { forgeRuns } from "../src/db/schema.js";
 import type { RelayConfig } from "../src/relay/config.js";
 
 process.env.EMBED_PROVIDER = "fake";
@@ -89,6 +92,18 @@ async function waitForStage(runId: string, stage: string, timeoutMs = 5000): Pro
   throw new Error(`timed out waiting for stage "${stage}"`);
 }
 
+// Persistence is fire-and-forget (settle() doesn't await the insert), so the
+// row can land a tick or two after awaitRun resolves. Poll instead of racing.
+async function waitForPersistedRun(runId: string, timeoutMs = 5000) {
+  const start = Date.now();
+  for (;;) {
+    const [row] = await db.select().from(forgeRuns).where(eq(forgeRuns.id, runId));
+    if (row) return row;
+    if (Date.now() - start > timeoutMs) throw new Error(`timed out waiting for persisted run ${runId}`);
+    await new Promise((r) => setTimeout(r, 20));
+  }
+}
+
 describe("forge run manager", () => {
   it("happy path: PASS leaves ticket in review awaiting promote", async () => {
     const { actorId, ticket } = await seedTicket("Happy path");
@@ -116,6 +131,10 @@ describe("forge run manager", () => {
     expect(output?.chunk).toContain("=== FORGE plan");
     expect(output?.chunk).toContain("=== FORGE work");
     expect(output?.chunk).toContain("=== FORGE review");
+
+    const persisted = await waitForPersistedRun(runId);
+    expect(persisted.status).toBe("passed");
+    expect(persisted.finishedAt).toBeTruthy();
   });
 
   it("FAIL verdict bounces to planned, sandbox kept", async () => {
@@ -145,6 +164,10 @@ describe("forge run manager", () => {
     expect((await getTicket(ticket.id)).status).toBe("planned");
     const report = [...(await listComments(ticket.id))].reverse().find((c) => c.kind === "report");
     expect(report?.body).toContain("worker failed");
+
+    const persisted = await waitForPersistedRun(runId);
+    expect(persisted.status).toBe("failed");
+    expect(persisted.finishedAt).toBeTruthy();
   });
 
   it("second pipeline on the same ticket rejects with ConflictError", async () => {

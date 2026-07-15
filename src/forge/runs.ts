@@ -11,6 +11,9 @@ import { getTicket } from "../services/history.js";
 import { searchKnowledge } from "../services/knowledge.js";
 import { ConflictError } from "../services/errors.js";
 import { logAgentUse, startAgentSession, endAgentSession } from "../services/usage.js";
+import { desc } from "drizzle-orm";
+import { db } from "../db/client.js";
+import { forgeRuns } from "../db/schema.js";
 
 const OUTPUT_CAP = 400_000;
 const MAX_ACTIVE = 3;
@@ -123,8 +126,7 @@ export async function startPipeline(
     // Uphold the never-stuck-in_progress invariant even for unexpected throws
     // (forgeCommit/addComment failures land here, after the claim).
     await bounce(run, actorId, "pipeline error", (e as Error).message);
-    run.status = "failed";
-    run.finishedAt = new Date().toISOString();
+    settle(run, "failed");
   });
   return { runId: run.id };
 }
@@ -205,6 +207,27 @@ async function pipeline(
 function settle(run: Run, status: Status): void {
   run.status = status;
   run.finishedAt = new Date().toISOString();
+  void persistRun(run); // fire-and-forget: history must never break a pipeline
+}
+
+// Single choke point for run-history rows. Best-effort: comments already hold
+// the durable plan/report/review record, this is just for the runs list.
+async function persistRun(run: Run): Promise<void> {
+  try {
+    await db.insert(forgeRuns).values({
+      id: run.id,
+      ticketId: run.ticketId,
+      status: run.status,
+      stage: run.stage,
+      planAgent: run.agents.plan,
+      workAgent: run.agents.work,
+      reviewAgent: run.agents.review,
+      startedAt: new Date(run.startedAt),
+      finishedAt: run.finishedAt ? new Date(run.finishedAt) : undefined,
+    });
+  } catch (e) {
+    console.warn(`forge: failed to persist run ${run.id}:`, (e as Error).message);
+  }
 }
 
 async function bounce(run: Run, actorId: string, why: string, output: string): Promise<void> {
@@ -227,6 +250,31 @@ function trim(): void {
 
 export function listRuns(): RunSummary[] {
   return [...runs.values()].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).map(summarize);
+}
+
+export type RunListItem = RunSummary & { persisted?: boolean };
+
+const HISTORY_LIMIT = 20;
+const LIST_CAP = 40;
+
+// Live runs plus recent persisted history, for the UI after a server restart
+// (live is authoritative for anything still in memory; DB fills the rest).
+export async function listRunsWithHistory(): Promise<RunListItem[]> {
+  const live = listRuns();
+  const liveIds = new Set(live.map((r) => r.id));
+  const rows = await db.select().from(forgeRuns).orderBy(desc(forgeRuns.startedAt)).limit(HISTORY_LIMIT);
+  const persisted: RunListItem[] = rows
+    .filter((r) => !liveIds.has(r.id))
+    .map((r) => ({
+      id: r.id, ticketId: r.ticketId, status: r.status as Status, stage: r.stage as Stage,
+      agents: { plan: r.planAgent, work: r.workAgent, review: r.reviewAgent },
+      startedAt: r.startedAt.toISOString(),
+      finishedAt: r.finishedAt ? r.finishedAt.toISOString() : undefined,
+      persisted: true,
+    }));
+  return [...live, ...persisted]
+    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    .slice(0, LIST_CAP);
 }
 
 export function getRunOutput(id: string, after: number) {

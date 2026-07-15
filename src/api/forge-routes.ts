@@ -5,7 +5,7 @@ import type { Hono } from "hono";
 import type { Actor } from "../db/schema.js";
 import { loadRelayConfig } from "../relay/config.js";
 import { parseVerdict } from "../relay/prompts.js";
-import { startPipeline, listRuns, getRunOutput, stopRun } from "../forge/runs.js";
+import { startPipeline, listRunsWithHistory, getRunOutput, stopRun } from "../forge/runs.js";
 import {
   sandboxExists, branchName, sandboxDiff, promoteSandbox, discardSandbox, assertTicketId,
 } from "../forge/sandbox.js";
@@ -81,7 +81,7 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     }
   });
 
-  app.get("/forge/runs", requireAdmin, async (c) => c.json(listRuns()));
+  app.get("/forge/runs", requireAdmin, async (c) => c.json(await listRunsWithHistory()));
 
   app.get("/forge/runs/:id/output", requireAdmin, async (c) => {
     const after = Number(c.req.query("after")) || 0;

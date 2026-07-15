@@ -146,3 +146,19 @@ export const agentSessions = pgTable('agent_sessions', {
 export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
 export type AgentSession = typeof agentSessions.$inferSelect;
 
+// Run-level history only; full output stays console/comments (comments are
+// the durable record already) — no output column here on purpose.
+export const forgeRuns = pgTable('forge_runs', {
+  id: uuid('id').primaryKey(),
+  ticketId: uuid('ticket_id').notNull(),
+  status: text('status').notNull(),
+  stage: text('stage').notNull(),
+  planAgent: text('plan_agent').notNull(),
+  workAgent: text('work_agent').notNull(),
+  reviewAgent: text('review_agent').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }),
+});
+
+export type ForgeRun = typeof forgeRuns.$inferSelect;
+
