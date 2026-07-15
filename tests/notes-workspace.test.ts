@@ -18,6 +18,7 @@ describe("notes workspace", () => {
     const note = await saveNote(actor.id, { body: oldBody, scope: "global", title: "Runbook" }, emb);
     expect(note.title).toBe("Runbook");
     expect(note.version).toBe(1);
+    expect(note.indexed).toBe(true); // embedding completed successfully
 
     const newBody = `edited body ${uniq()}`;
     const updated = await updateNote(actor.id, note.id, 1, { body: newBody }, emb);

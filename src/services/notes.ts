@@ -26,10 +26,12 @@ export async function saveNote(
   });
 
   try {
-    await insertNoteEmbedding(note.id, note.body, embedder);
-    const [updated] = await db.update(notes)
-      .set({ indexed: true }).where(eq(notes.id, note.id)).returning();
-    return updated;
+    if (await insertNoteEmbedding(note.id, note.body, embedder)) {
+      const [updated] = await db.update(notes)
+        .set({ indexed: true }).where(eq(notes.id, note.id)).returning();
+      return updated;
+    }
+    return note; // embedding skipped (stale/deleted); sweep will retry
   } catch {
     return note; // truth kept; sweep will re-index
   }
@@ -85,7 +87,9 @@ export async function updateNote(
   if (note.version === expectedVersion) return note; // no-op patch: nothing to re-embed
 
   try {
-    await insertNoteEmbedding(note.id, note.body, embedder);
+    if (!await insertNoteEmbedding(note.id, note.body, embedder)) {
+      return note; // embedding skipped (stale/deleted); sweep will retry
+    }
     const [indexed] = await db.update(notes).set({ indexed: true })
       .where(and(eq(notes.id, note.id), isNull(notes.deletedAt)))
       .returning();
