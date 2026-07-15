@@ -10,6 +10,7 @@ import { addComment, listComments } from "../services/comments.js";
 import { getTicket } from "../services/history.js";
 import { searchKnowledge } from "../services/knowledge.js";
 import { ConflictError } from "../services/errors.js";
+import { logAgentUse, startAgentSession, endAgentSession } from "../services/usage.js";
 
 const OUTPUT_CAP = 400_000;
 const MAX_ACTIVE = 3;
@@ -63,6 +64,23 @@ function append(run: Run, text: string): void {
 
 function activeRuns(): Run[] {
   return [...runs.values()].filter((r) => r.status === "running");
+}
+
+// Wraps a stage's runAgent call with an agent_sessions row (start/end) and an
+// ai_usage_logs row (estimated tokens from output length). Never throws.
+async function track(
+  actorId: string, ticketId: string, role: Stage, agentName: string,
+  fn: () => Promise<{ ok: boolean; output: string }>,
+): Promise<{ ok: boolean; output: string }> {
+  const sessionId = await startAgentSession(`${role}:${agentName}`);
+  const startedAt = Date.now();
+  const res = await fn();
+  await endAgentSession(sessionId, res.ok);
+  await logAgentUse({
+    actorId, agent: agentName, role, ticketId,
+    outputChars: res.output.length, durationMs: Date.now() - startedAt, ok: res.ok,
+  });
+  return res;
 }
 
 function getAgent(config: RelayConfig, name: string, role: Stage): RelayAgent {
@@ -124,10 +142,10 @@ async function pipeline(
   if (ticket.status === "open") {
     append(run, `=== FORGE plan (${run.agents.plan}) ===\n`);
     const knowledge = await getKnowledgeSafe(ticket.title);
-    const res = await runAgent(
+    const res = await track(actorId, ticket.id, "plan", run.agents.plan, () => runAgent(
       agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + extra, config.workdir, onData,
       (child) => { run.child = child; },
-    );
+    ));
     run.child = undefined;
     if (run.stopped) return settle(run, "stopped");
     if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed"); }
@@ -152,7 +170,8 @@ async function pipeline(
   const findings = lastReview ? `\n\nPrevious review findings (address ALL of these):\n${lastReview.body}` : "";
   const workPrompt = composeWorkPrompt({ ticket, plan, knowledge, workdir: sandbox })
     + findings + NARRATION + "\n\nDo NOT run git commit; the supervisor commits for you." + extra;
-  const workRes = await runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; });
+  const workRes = await track(actorId, ticket.id, "work", run.agents.work, () =>
+    runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; }));
   run.child = undefined;
   if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
   if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
@@ -165,12 +184,12 @@ async function pipeline(
   append(run, `\n=== FORGE review (${run.agents.review}) ===\n`);
   const diff = await sandboxDiff(config.workdir, ticket.id);
   const stat = await sandboxDiffSummary(config.workdir, ticket.id);
-  const reviewRes = await runAgent(
+  const reviewRes = await track(actorId, ticket.id, "review", run.agents.review, () => runAgent(
     agents.review,
     composeReviewPrompt({ ticket, plan, report: workRes.output, diff: reviewDiffPayload(diff, stat) }),
     config.workdir, onData,
     (child) => { run.child = child; },
-  );
+  ));
   run.child = undefined;
   if (run.stopped) return settle(run, "stopped");
   const verdict = parseVerdict(reviewRes.output);
