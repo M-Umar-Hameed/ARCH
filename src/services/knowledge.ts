@@ -5,6 +5,7 @@ import { db } from "../db/client.js";
 import { embeddings, notes } from "../db/schema.js";
 import { chunkMarkdown } from "../knowledge/chunker.js";
 import { getEmbedder, type Embedder } from "../knowledge/embedder.js";
+import { redactSecrets } from "../forge/redact.js";
 
 export function fileHash(text: string): string {
   return createHash("sha256").update(text).digest("hex");
@@ -27,7 +28,7 @@ export async function upsertSourceDoc(
   const vecs = chunks.length ? await embedder.embed(chunks.map((c) => c.content)) : [];
   const rows = chunks.map((c, i) => ({
     sourceKind: kind, sourceRef: ref, chunkIndex: c.index,
-    content: c.content, embedding: vecs[i], model: embedder.model, dim: embedder.dim,
+    content: redactSecrets(c.content), embedding: vecs[i], model: embedder.model, dim: embedder.dim,
     contentHash: hash,
   }));
   // One transaction so a mid-batch failure rolls everything back — a partial write
@@ -68,7 +69,7 @@ export async function insertNoteEmbedding(noteId: string, body: string, embedder
       .where(and(eq(embeddings.sourceKind, "note"), eq(embeddings.sourceRef, noteId)));
     await tx.insert(embeddings).values(parts.map((c, i) => ({
       sourceKind: "note" as const, sourceRef: noteId, chunkIndex: c.index,
-      content: c.content, embedding: vecs[i], model: embedder.model, dim: embedder.dim,
+      content: redactSecrets(c.content), embedding: vecs[i], model: embedder.model, dim: embedder.dim,
       contentHash: hash,
     })));
     return true;
@@ -79,7 +80,7 @@ export async function searchKnowledge(
   query: string,
   opts: { limit?: number } = {},
   embedder: Embedder = getEmbedder(),
-): Promise<{ content: string; sourceKind: string; sourceRef: string; score: number; citation: string }[]> {
+): Promise<{ content: string; sourceKind: string; sourceRef: string; score: number; citation: string; createdAt: string }[]> {
   const [qv] = await embedder.embed([query]);
   const limit = opts.limit ?? 5;
   const lit = vecLiteral(qv);
@@ -88,20 +89,30 @@ export async function searchKnowledge(
   // ef_search 100 (default 40): the dim filter runs AFTER the ANN scan, so
   // mixed-dim/mixed-source indexes need a wider candidate pool or exact
   // matches fall out of the top-k as the table grows.
+  // Inner query does the ANN scan (cheap, index-assisted) over a wider
+  // candidate pool; outer query re-ranks that pool by recency-decayed score
+  // so the HNSW index is never asked to order by anything but distance.
   const res: unknown = await db.transaction(async (tx) => {
     await tx.execute(dsql`set local hnsw.ef_search = 100`);
     return tx.execute(dsql`
-    select source_kind, source_ref, content,
-           1 - (embedding <=> ${lit}::vector) as score
-    from embeddings
-    where dim = ${embedder.dim}
-    order by embedding <=> ${lit}::vector
+    select source_kind, source_ref, content, created_at,
+           (1 - cosine_distance) * (1.0 / (1.0 + extract(epoch from (now() - created_at)) / (86400.0 * 90))) as score
+    from (
+      select source_kind, source_ref, content, created_at,
+             embedding <=> ${lit}::vector as cosine_distance
+      from embeddings
+      where dim = ${embedder.dim}
+      order by embedding <=> ${lit}::vector
+      limit ${limit * 4}
+    ) candidates
+    order by score desc
     limit ${limit}`);
   });
   const rows = (Array.isArray(res) ? res : (res as { rows: unknown[] }).rows) as any[];
   return rows.map((r: any) => ({
     content: r.content, sourceKind: r.source_kind, sourceRef: r.source_ref,
     score: Number(r.score), citation: r.source_ref,
+    createdAt: new Date(r.created_at).toISOString(),
   }));
 }
 

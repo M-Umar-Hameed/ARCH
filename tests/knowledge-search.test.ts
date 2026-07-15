@@ -1,6 +1,11 @@
 import { expect, test } from "vitest";
+import { eq } from "drizzle-orm";
 import { FakeEmbedder } from "../src/knowledge/embedder.js";
 import { upsertVaultFile, searchKnowledge } from "../src/services/knowledge.js";
+import { db } from "../src/db/client.js";
+import { embeddings } from "../src/db/schema.js";
+import { createActor } from "../src/services/actors.js";
+import { saveNote } from "../src/services/notes.js";
 
 const emb = new FakeEmbedder(1024);
 
@@ -19,6 +24,48 @@ test("indexed vault content is retrievable and ranked", async () => {
   const mine = hits.find((h) => h.sourceRef === p);
   expect(mine).toBeDefined();
   expect(mine!.citation).toBe(p);
+});
+
+test("secrets are redacted before indexing (vault and note)", async () => {
+  const uniq = `run-${Date.now()}-${Math.round(performance.now() * 1000)}`;
+  const key = "sk-abcdefghij0123456789";
+  const content = `# Creds ${uniq}\ntoken is ${key} do not share`;
+  const p = `secret-${uniq}.md`;
+  await upsertVaultFile(p, content, emb);
+  const hits = await searchKnowledge(content, { limit: 20 }, emb);
+  const mine = hits.find((h) => h.sourceRef === p);
+  expect(mine).toBeDefined();
+  expect(mine!.content).not.toContain(key);
+  expect(mine!.content).toContain("[redacted]");
+
+  const { actor } = await createActor({ name: `secnote-${uniq}`, kind: "agent" });
+  const noteBody = `note secret ${uniq} ${key}`;
+  const note = await saveNote(actor.id, { body: noteBody, scope: "global" }, emb);
+  const noteHits = await searchKnowledge(noteBody, { limit: 20 }, emb);
+  const mineNote = noteHits.find((h) => h.sourceRef === note.id);
+  expect(mineNote).toBeDefined();
+  expect(mineNote!.content).not.toContain(key);
+  expect(mineNote!.content).toContain("[redacted]");
+});
+
+test("search results carry provenance and recency-decayed score", async () => {
+  const uniq = `run-${Date.now()}-${Math.round(performance.now() * 1000)}`;
+  const content = `# Recency ${uniq}\nidentical content for decay comparison.`;
+  const fresh = `fresh-${uniq}.md`;
+  const stale = `stale-${uniq}.md`;
+  await upsertVaultFile(fresh, content, emb);
+  await upsertVaultFile(stale, content, emb);
+  await db.update(embeddings)
+    .set({ createdAt: new Date(Date.now() - 300 * 86400_000) })
+    .where(eq(embeddings.sourceRef, stale));
+
+  const hits = await searchKnowledge(content, { limit: 20 }, emb);
+  const freshHit = hits.find((h) => h.sourceRef === fresh);
+  const staleHit = hits.find((h) => h.sourceRef === stale);
+  expect(freshHit).toBeDefined();
+  expect(staleHit).toBeDefined();
+  expect(typeof freshHit!.createdAt).toBe("string");
+  expect(freshHit!.score).toBeGreaterThan(staleHit!.score);
 });
 
 test("dim mismatch rows are excluded", async () => {
