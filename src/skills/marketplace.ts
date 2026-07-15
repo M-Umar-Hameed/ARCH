@@ -168,19 +168,27 @@ export function discoverSkills(repoDir: string): DiscoveredSkill[] {
   return discoverPlainFormat(repoDir);
 }
 
+// Registry keys scope by the overridden root: parallel test files share one
+// settings DB and would otherwise clobber each other's registries. Production
+// (no env override) uses the plain keys.
+function regKey(base: string): string {
+  const home = process.env.VIBEOPS_SKILLS_HOME;
+  return home ? `${base}:${createHash("sha1").update(home).digest("hex").slice(0, 8)}` : base;
+}
+
 async function getMarketplaces(): Promise<MarketplaceEntry[]> {
-  const raw = await getSetting("skills.marketplaces");
+  const raw = await getSetting(regKey("skills.marketplaces"));
   return raw ? JSON.parse(raw) : [];
 }
 async function setMarketplaces(list: MarketplaceEntry[]): Promise<void> {
-  await setSetting("skills.marketplaces", JSON.stringify(list));
+  await setSetting(regKey("skills.marketplaces"), JSON.stringify(list));
 }
 async function getInstalled(): Promise<InstalledSkillEntry[]> {
-  const raw = await getSetting("skills.installed");
+  const raw = await getSetting(regKey("skills.installed"));
   return raw ? JSON.parse(raw) : [];
 }
 async function setInstalled(list: InstalledSkillEntry[]): Promise<void> {
-  await setSetting("skills.installed", JSON.stringify(list));
+  await setSetting(regKey("skills.installed"), JSON.stringify(list));
 }
 
 function toPublic(skill: DiscoveredSkill, installed: InstalledSkillEntry[]): PublicSkill {
