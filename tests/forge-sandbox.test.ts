@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   assertTicketId, sandboxPath, sandboxExists, ensureSandbox,
-  forgeCommit, sandboxDiff, promoteSandbox, discardSandbox,
+  forgeCommit, sandboxDiff, sandboxDiffSummary, promoteSandbox, discardSandbox,
 } from "../src/forge/sandbox.js";
 import { ConflictError } from "../src/services/errors.js";
 
@@ -54,6 +54,15 @@ describe("forge sandbox", () => {
     expect(existsSync(join(workdir, "b.txt"))).toBe(true);
     expect(sandboxExists(TID)).toBe(false);
     expect(git(workdir, "branch", "--list", `forge/${TID}`).trim()).toBe("");
+  });
+
+  it("sandboxDiffSummary returns a --stat style line for a changed file", async () => {
+    const sp = await ensureSandbox(workdir, TID);
+    writeFileSync(join(sp, "b.txt"), "new file\n");
+    await forgeCommit(TID, "add b");
+    const stat = await sandboxDiffSummary(workdir, TID);
+    expect(stat).toContain("b.txt");
+    expect(stat).toMatch(/\d+ files? changed/);
   });
 
   it("forgeCommit returns false when nothing changed", async () => {

@@ -73,6 +73,11 @@ export async function sandboxDiff(workdir: string, ticketId: string): Promise<st
   return out.slice(0, DIFF_CAP);
 }
 
+export async function sandboxDiffSummary(workdir: string, ticketId: string): Promise<string> {
+  const { out } = await git(workdir, "diff", "--stat", `HEAD...${branchName(ticketId)}`);
+  return out.slice(0, DIFF_CAP);
+}
+
 export async function promoteSandbox(workdir: string, ticketId: string): Promise<void> {
   const dirty = await git(workdir, "status", "--porcelain");
   if (dirty.out.trim()) {

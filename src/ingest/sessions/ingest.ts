@@ -4,6 +4,7 @@ import { embeddings } from "../../db/schema.js";
 import { upsertSourceDoc } from "../../services/knowledge.js";
 import { getEmbedder, type Embedder } from "../../knowledge/embedder.js";
 import type { SessionSource } from "./source.js";
+import { compressSessionText } from "./compress.js";
 
 export async function ingestSessions(
   sources: SessionSource[],
@@ -22,7 +23,7 @@ export async function ingestSessions(
         const [existing] = await db.select({ h: embeddings.contentHash }).from(embeddings)
           .where(and(eq(embeddings.sourceKind, "session"), eq(embeddings.sourceRef, doc.ref))).limit(1);
         if (existing && existing.h === doc.hash) { r.skipped++; continue; }
-        await upsertSourceDoc("session", doc.ref, doc.text, embedder, doc.hash);
+        await upsertSourceDoc("session", doc.ref, compressSessionText(doc.text), embedder, doc.hash);
         r.indexed++;
       } catch (e) {
         console.warn(`doc ${doc.ref} failed: ${(e as Error).message}`);

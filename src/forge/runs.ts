@@ -4,7 +4,7 @@ import type { RelayConfig, RelayAgent } from "../relay/config.js";
 import { composePlanPrompt, composeWorkPrompt, composeReviewPrompt, parseVerdict } from "../relay/prompts.js";
 import { runAgent, killTree } from "../relay/invoke.js";
 import { redactSecrets } from "./redact.js";
-import { ensureSandbox, forgeCommit, sandboxDiff } from "./sandbox.js";
+import { ensureSandbox, forgeCommit, sandboxDiff, sandboxDiffSummary } from "./sandbox.js";
 import { updateTicket } from "../services/tickets.js";
 import { addComment, listComments } from "../services/comments.js";
 import { getTicket } from "../services/history.js";
@@ -15,6 +15,14 @@ const OUTPUT_CAP = 400_000;
 const MAX_ACTIVE = 3;
 const KEEP_FINISHED = 20;
 const MAX_EXTRA_PROMPT = 10_000;
+export const DIFF_PROMPT_CAP = 40_000;
+
+// Large diffs blow the reviewer's context for little benefit; past the cap, a
+// stat summary plus a prefix is enough signal to judge the change.
+export function reviewDiffPayload(fullDiff: string, stat: string, cap = DIFF_PROMPT_CAP): string {
+  if (fullDiff.length <= cap) return fullDiff;
+  return `[diff too large: showing stat + first ${cap / 1000}k chars]\n${stat}\n\n${fullDiff.slice(0, cap)}`;
+}
 
 const NARRATION =
   "\n\nNarrate your reasoning out loud as you work: before each step, print what " +
@@ -156,9 +164,10 @@ async function pipeline(
   run.stage = "review";
   append(run, `\n=== FORGE review (${run.agents.review}) ===\n`);
   const diff = await sandboxDiff(config.workdir, ticket.id);
+  const stat = await sandboxDiffSummary(config.workdir, ticket.id);
   const reviewRes = await runAgent(
     agents.review,
-    composeReviewPrompt({ ticket, plan, report: workRes.output, diff }),
+    composeReviewPrompt({ ticket, plan, report: workRes.output, diff: reviewDiffPayload(diff, stat) }),
     config.workdir, onData,
     (child) => { run.child = child; },
   );
