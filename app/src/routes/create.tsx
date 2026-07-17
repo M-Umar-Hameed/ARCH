@@ -203,7 +203,8 @@ function CouncilPanel({ projects, nav }: { projects: Project[]; nav: ReturnType<
   const [councilRating, setCouncilRating] = useState<number | undefined>(undefined);
   const [councilDecision, setCouncilDecision] = useState<Decision | undefined>(undefined);
   const [councilQuestions, setCouncilQuestions] = useState<string[]>([]);
-  const [councilTitle, setCouncilTitle] = useState("");
+  // Title is shown inside the spec preview; only the setter side effects matter.
+  const [, setCouncilTitle] = useState("");
   const [councilSpec, setCouncilSpec] = useState("");
   const [answers, setAnswers] = useState<string[]>([]);
   const [forceCreate, setForceCreate] = useState(false);

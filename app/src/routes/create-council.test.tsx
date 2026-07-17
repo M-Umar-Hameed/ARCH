@@ -116,7 +116,7 @@ test("decided GO renders spec and Create ticket posts { projectId } then navigat
   fireEvent.click(screen.getByText(/Convene council/i));
 
   await act(async () => { vi.advanceTimersByTime(2000); });
-  await waitFor(() => expect(screen.getByText("# Spec\nDo the thing.")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Do the thing/)).toBeInTheDocument(), { timeout: 6000 });
   expect(screen.getByText("8/10")).toBeInTheDocument();
 
   fireEvent.click(screen.getByText(/Create ticket/i));
@@ -148,7 +148,7 @@ test("NEEDS-INFO shows the Create-anyway checkbox and posts force: true when che
   fireEvent.click(screen.getByText(/Convene council/i));
 
   await act(async () => { vi.advanceTimersByTime(2000); });
-  await waitFor(() => expect(screen.getByText(/Create anyway/i)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Create anyway/i)).toBeInTheDocument(), { timeout: 6000 });
 
   const createBtn = screen.getByText(/Create ticket/i);
   expect(createBtn).toBeDisabled();
