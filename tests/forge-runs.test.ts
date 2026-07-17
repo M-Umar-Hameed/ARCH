@@ -1,14 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFileSync } from "node:child_process";
 import { eq } from "drizzle-orm";
-import { startPipeline, getRunOutput, awaitRun, stopRun, listRuns } from "../src/forge/runs.js";
-import { sandboxExists } from "../src/forge/sandbox.js";
+import { startPipeline, getRunOutput, awaitRun, stopRun, listRuns, resolveWorkdir } from "../src/forge/runs.js";
+import { sandboxExists, branchName, promoteSandbox } from "../src/forge/sandbox.js";
 import { createActor } from "../src/services/actors.js";
-import { createProject } from "../src/services/projects.js";
+import { createProject, updateProjectRepo } from "../src/services/projects.js";
 import { createTicket } from "../src/services/tickets.js";
 import { updateTicket } from "../src/services/tickets.js";
 import { addComment, listComments } from "../src/services/comments.js";
@@ -307,5 +307,49 @@ describe("forge run manager", () => {
     } finally {
       await setSetting("ai.routing_strategy", priorStrategy ?? "balanced");
     }
+  });
+
+  it("pipeline sandboxes the ticket's OWN project repo, not config.workdir, and promote merges into it", async () => {
+    const projectRepo = initRepo();
+    const { actor } = await createActor({ name: uniq("forge-actor"), kind: "human" });
+    const project = await createProject({ key: uniq("forge-proj"), name: "Forge" });
+    await updateProjectRepo(project.id, projectRepo);
+    const ticket = await createTicket(actor.id, { projectId: project.id, title: "Own repo path" });
+    setScript("plan,work,review-pass", true);
+
+    const { runId } = await startPipeline(actor.id, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    });
+    await awaitRun(runId);
+    expect(getRunOutput(runId, 0)?.status).toBe("passed");
+
+    const branch = branchName(ticket.id);
+    const ownBranches = execFileSync("git", ["branch", "--list", branch], { cwd: projectRepo }).toString();
+    expect(ownBranches).toContain(branch);
+    const configWorkdirBranches = execFileSync("git", ["branch", "--list", branch], { cwd: workdir }).toString();
+    expect(configWorkdirBranches.trim()).toBe("");
+
+    const resolved = await resolveWorkdir(project.id, relayConfig());
+    expect(resolved).toBe(projectRepo);
+    await promoteSandbox(resolved, ticket.id);
+    expect(existsSync(join(projectRepo, "forge-made.txt"))).toBe(true);
+    expect(sandboxExists(ticket.id)).toBe(false);
+
+    rmSync(projectRepo, { recursive: true, force: true });
+  });
+
+  it("pipeline 409s when the project's repoPath is set but not a git repo", async () => {
+    const nonGitDir = mkdtempSync(join(tmpdir(), "forge-run-nongit-"));
+    const { actor } = await createActor({ name: uniq("forge-actor"), kind: "human" });
+    const project = await createProject({ key: uniq("forge-proj"), name: "Forge" });
+    await updateProjectRepo(project.id, nonGitDir);
+    const ticket = await createTicket(actor.id, { projectId: project.id, title: "Non-git repo" });
+    setScript("plan,work,review-pass", true);
+
+    await expect(startPipeline(actor.id, relayConfig(), {
+      ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+    })).rejects.toThrow(ConflictError);
+
+    rmSync(nonGitDir, { recursive: true, force: true });
   });
 });

@@ -1,9 +1,23 @@
+import { existsSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { spawn } from "node:child_process";
+import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { projects, type Project } from "../db/schema.js";
-import { ConflictError } from "./errors.js";
+import { ConflictError, NotFoundError } from "./errors.js";
 
-export async function listProjects(): Promise<Project[]> {
-  return db.select().from(projects);
+// Never-throw: a workspace folder can vanish (moved/deleted) after being set.
+function isGit(repoPath: string): boolean {
+  try {
+    return existsSync(join(repoPath, ".git"));
+  } catch {
+    return false;
+  }
+}
+
+export async function listProjects(): Promise<(Project & { isGit: boolean })[]> {
+  const rows = await db.select().from(projects);
+  return rows.map((p) => ({ ...p, isGit: p.repoPath ? isGit(p.repoPath) : false }));
 }
 
 export async function createProject(input: { key: string; name: string }): Promise<Project> {
@@ -16,4 +30,56 @@ export async function createProject(input: { key: string; name: string }): Promi
     }
     throw e;
   }
+}
+
+// Empty string clears the workspace back to null (falls back to config.workdir).
+// Non-empty must be an absolute, existing directory.
+export async function updateProjectRepo(id: string, repoPath: string): Promise<Project & { isGit: boolean }> {
+  let value: string | null = repoPath.trim();
+  if (value === "") {
+    value = null;
+  } else {
+    if (!/^([a-zA-Z]:[\\/]|\/)/.test(value)) throw new Error(`repoPath must be an absolute path: ${value}`);
+    if (!existsSync(value) || !statSync(value).isDirectory()) {
+      throw new Error(`repoPath does not exist or is not a directory: ${value}`);
+    }
+  }
+  const [p] = await db.update(projects).set({ repoPath: value }).where(eq(projects.id, id)).returning();
+  if (!p) throw new NotFoundError(`project not found: ${id}`);
+  return { ...p, isGit: p.repoPath ? isGit(p.repoPath) : false };
+}
+
+// Resolution for forge: the project's repoPath if set and still exists on disk, else null
+// (caller falls back to config.workdir).
+export async function projectWorkdir(projectId: string): Promise<string | null> {
+  const [p] = await db.select().from(projects).where(eq(projects.id, projectId));
+  if (!p?.repoPath) return null;
+  try {
+    return existsSync(p.repoPath) ? p.repoPath : null;
+  } catch {
+    return null;
+  }
+}
+
+// Arg-vector git, never shell — mirrors forge/sandbox.ts's helper.
+function gitInit(cwd: string): Promise<{ code: number; out: string }> {
+  return new Promise((res) => {
+    const child = spawn("git", ["init", "-b", "main"], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    child.stdout?.on("data", (d) => { out += d.toString("utf-8"); });
+    child.stderr?.on("data", (d) => { out += d.toString("utf-8"); });
+    child.on("close", (code) => res({ code: code ?? 1, out }));
+    child.on("error", (e) => res({ code: 1, out: String(e) }));
+  });
+}
+
+// Sandboxes require a git repo; this bootstraps one in an already-chosen workspace folder.
+export async function gitInitProject(id: string): Promise<Project & { isGit: boolean }> {
+  const [p] = await db.select().from(projects).where(eq(projects.id, id));
+  if (!p) throw new NotFoundError(`project not found: ${id}`);
+  if (!p.repoPath) throw new ConflictError("project has no repoPath set");
+  if (isGit(p.repoPath)) throw new ConflictError("repoPath is already a git repository");
+  const { code, out } = await gitInit(p.repoPath);
+  if (code !== 0) throw new Error(`git init failed: ${out.trim()}`);
+  return { ...p, isGit: true };
 }

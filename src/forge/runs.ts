@@ -1,4 +1,6 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { resolveCmd, type RelayConfig, type RelayAgent } from "../relay/config.js";
 import { composePlanPrompt, composeWorkPrompt, composeReviewPrompt, parseVerdict } from "../relay/prompts.js";
@@ -11,6 +13,7 @@ import { addComment, listComments } from "../services/comments.js";
 import { getTicket } from "../services/history.js";
 import { searchKnowledge } from "../services/knowledge.js";
 import { getSetting } from "../services/settings.js";
+import { projectWorkdir } from "../services/projects.js";
 import { ConflictError } from "../services/errors.js";
 import { logAgentUse, startAgentSession, endAgentSession } from "../services/usage.js";
 import { desc } from "drizzle-orm";
@@ -106,6 +109,18 @@ async function countFailedReviews(ticketId: string): Promise<number> {
   return comments.filter((c) => c.kind === "review" && !parseVerdict(c.body).pass).length;
 }
 
+// Ticket's project repo if set and still on disk, else config.workdir (Inbox and
+// legacy projects keep working unchanged). Guard: a set-but-non-git repo is a 409,
+// not a silent fallback -- forge sandboxes require git.
+export async function resolveWorkdir(ticketProjectId: string, config: RelayConfig): Promise<string> {
+  const repo = await projectWorkdir(ticketProjectId);
+  if (repo === null) return config.workdir;
+  if (!existsSync(join(repo, ".git"))) {
+    throw new ConflictError("workspace is not a git repository; initialize git first");
+  }
+  return repo;
+}
+
 export async function startPipeline(
   actorId: string, config: RelayConfig,
   opts: {
@@ -149,6 +164,7 @@ export async function startPipeline(
   if (ticket.status !== "open" && ticket.status !== "planned") {
     throw new ConflictError(`ticket is ${ticket.status}; pipeline needs open or planned`);
   }
+  const workdir = await resolveWorkdir(ticket.projectId, config);
 
   const run: Run = {
     id: randomUUID(), ticketId: opts.ticketId, stage: "plan", status: "running",
@@ -158,7 +174,7 @@ export async function startPipeline(
   };
   runs.set(run.id, run);
   trim();
-  run.done = pipeline(run, actorId, config, agents, opts.extraPrompt).catch(async (e) => {
+  run.done = pipeline(run, actorId, agents, workdir, opts.extraPrompt).catch(async (e) => {
     append(run, `\nforge: pipeline error: ${(e as Error).message}\n`);
     // Uphold the never-stuck-in_progress invariant even for unexpected throws
     // (forgeCommit/addComment failures land here, after the claim).
@@ -169,8 +185,8 @@ export async function startPipeline(
 }
 
 async function pipeline(
-  run: Run, actorId: string, config: RelayConfig,
-  agents: { plan: RelayAgent; work: RelayAgent; review: RelayAgent }, extraPrompt?: string,
+  run: Run, actorId: string,
+  agents: { plan: RelayAgent; work: RelayAgent; review: RelayAgent }, workdir: string, extraPrompt?: string,
 ): Promise<void> {
   const extra = extraPrompt ? `\n\nOperator instructions:\n${extraPrompt}` : "";
   const onData = (c: string) => append(run, c);
@@ -182,7 +198,7 @@ async function pipeline(
     append(run, `=== FORGE plan (${run.agents.plan}) ===\n`);
     const knowledge = await getKnowledgeSafe(ticket.title);
     const res = await track(actorId, ticket.id, "plan", run.agents.plan, () => runAgent(
-      agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + extra, config.workdir, onData,
+      agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + extra, workdir, onData,
       (child) => { run.child = child; },
     ));
     run.child = undefined;
@@ -201,7 +217,7 @@ async function pipeline(
   run.stage = "work";
   append(run, `\n=== FORGE work (${run.agents.work}) ===\n`);
   ticket = await updateTicket(actorId, ticket.id, ticket.version, { status: "in_progress" });
-  const sandbox = await ensureSandbox(config.workdir, ticket.id);
+  const sandbox = await ensureSandbox(workdir, ticket.id);
   const knowledge = await getKnowledgeSafe(ticket.title);
   // Rework passes must see why the last review failed, or the worker repeats
   // the same mistakes (live-hit on the first dogfood ticket).
@@ -221,12 +237,12 @@ async function pipeline(
   // review — against the sandbox branch diff
   run.stage = "review";
   append(run, `\n=== FORGE review (${run.agents.review}) ===\n`);
-  const diff = await sandboxDiff(config.workdir, ticket.id);
-  const stat = await sandboxDiffSummary(config.workdir, ticket.id);
+  const diff = await sandboxDiff(workdir, ticket.id);
+  const stat = await sandboxDiffSummary(workdir, ticket.id);
   const reviewRes = await track(actorId, ticket.id, "review", run.agents.review, () => runAgent(
     agents.review,
     composeReviewPrompt({ ticket, plan, report: workRes.output, diff: reviewDiffPayload(diff, stat) }),
-    config.workdir, onData,
+    workdir, onData,
     (child) => { run.child = child; },
   ));
   run.child = undefined;

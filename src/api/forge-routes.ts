@@ -5,7 +5,7 @@ import type { Hono } from "hono";
 import type { Actor } from "../db/schema.js";
 import { loadRelayConfig } from "../relay/config.js";
 import { parseVerdict } from "../relay/prompts.js";
-import { startPipeline, listRunsWithHistory, getRunOutput, stopRun } from "../forge/runs.js";
+import { startPipeline, listRunsWithHistory, getRunOutput, stopRun, resolveWorkdir } from "../forge/runs.js";
 import {
   sandboxExists, branchName, sandboxDiff, promoteSandbox, discardSandbox, assertTicketId,
 } from "../forge/sandbox.js";
@@ -119,7 +119,9 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
   app.get("/forge/tickets/:id/diff", requireAdmin, async (c) => {
     const ticketId = c.req.param("id");
     if (!sandboxExists(ticketId)) return c.json({ error: "no sandbox for ticket" }, 404);
-    const diff = await sandboxDiff(forgeConfig().workdir, ticketId);
+    const ticket = await getTicket(ticketId);
+    const workdir = await resolveWorkdir(ticket.projectId, forgeConfig());
+    const diff = await sandboxDiff(workdir, ticketId);
     return c.json({ diff });
   });
 
@@ -129,7 +131,9 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     if (!sandboxExists(ticketId) || verdict !== "pass") {
       return c.json({ error: "sandbox must exist and have a passing review before promoting" }, 409);
     }
-    await promoteSandbox(forgeConfig().workdir, ticketId);
+    const ticket = await getTicket(ticketId);
+    const workdir = await resolveWorkdir(ticket.projectId, forgeConfig());
+    await promoteSandbox(workdir, ticketId);
     await addComment(c.get("actor").id, ticketId, "forge: promoted", "comment");
     const fresh = await getTicket(ticketId);
     const updated = await updateTicket(c.get("actor").id, ticketId, fresh.version, { status: "closed" });
@@ -139,12 +143,14 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
   app.post("/forge/tickets/:id/discard", requireAdmin, async (c) => {
     const ticketId = c.req.param("id");
     if (!sandboxExists(ticketId)) return c.json({ error: "no sandbox for ticket" }, 404);
-    await discardSandbox(forgeConfig().workdir, ticketId);
+    const ticket = await getTicket(ticketId);
+    const workdir = await resolveWorkdir(ticket.projectId, forgeConfig());
+    await discardSandbox(workdir, ticketId);
     await addComment(c.get("actor").id, ticketId, "forge: sandbox discarded", "comment");
-    let ticket = await getTicket(ticketId);
-    if (ticket.status === "review") {
-      ticket = await updateTicket(c.get("actor").id, ticketId, ticket.version, { status: "planned" });
+    let updated = ticket;
+    if (updated.status === "review") {
+      updated = await updateTicket(c.get("actor").id, ticketId, updated.version, { status: "planned" });
     }
-    return c.json(ticket);
+    return c.json(updated);
   });
 }

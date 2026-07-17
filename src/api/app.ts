@@ -6,7 +6,7 @@ import { getTicket, getTicketHistory, listTickets, searchTickets } from "../serv
 import { saveNote, updateNote, deleteNote, listNotes, getNote } from "../services/notes.js";
 import { searchKnowledge, getKnowledgeSource } from "../services/knowledge.js";
 import { AuthError, ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../services/errors.js";
-import { listProjects, createProject } from "../services/projects.js";
+import { listProjects, createProject, updateProjectRepo, gitInitProject } from "../services/projects.js";
 import { listActors, createActor } from "../services/actors.js";
 import { requireAdmin } from "./auth.js";
 import { getSystemMetrics, getSystemLogs, getSystemTopology, getAiUsage } from "../services/system.js";
@@ -64,6 +64,17 @@ app.post("/projects", async (c) => {
   const { key, name } = await c.req.json();
   return c.json(await createProject({ key, name }), 201);
 });
+app.patch("/projects/:id", requireAdmin, async (c) => {
+  const { repoPath } = await c.req.json().catch(() => ({}));
+  if (typeof repoPath !== "string") return c.json({ error: "repoPath must be a string" }, 400);
+  try {
+    return c.json(await updateProjectRepo(c.req.param("id"), repoPath));
+  } catch (e) {
+    if (e instanceof NotFoundError || e instanceof ConflictError) throw e;
+    return c.json({ error: (e as Error).message }, 400);
+  }
+});
+app.post("/projects/:id/git-init", requireAdmin, async (c) => c.json(await gitInitProject(c.req.param("id"))));
 app.get("/actors", async (c) => c.json(await listActors()));
 app.post("/actors", requireAdmin, async (c) => {
   const { name, kind, role } = await c.req.json().catch(() => ({}));

@@ -11,6 +11,7 @@ export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   key: text("key").notNull().unique(),
   name: text("name").notNull(),
+  repoPath: text("repo_path"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
