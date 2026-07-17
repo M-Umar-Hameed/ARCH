@@ -4,7 +4,7 @@ import { createTicket, updateTicket } from "../services/tickets.js";
 import { addComment, listComments } from "../services/comments.js";
 import { getTicket, getTicketHistory, listTickets, searchTickets } from "../services/history.js";
 import { saveNote, updateNote, deleteNote, listNotes, getNote } from "../services/notes.js";
-import { searchKnowledge, getKnowledgeSource } from "../services/knowledge.js";
+import { searchKnowledge, getKnowledgeSource, upsertSourceDoc } from "../services/knowledge.js";
 import { AuthError, ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../services/errors.js";
 import { listProjects, createProject, updateProjectRepo, gitInitProject } from "../services/projects.js";
 import { listActors, createActor } from "../services/actors.js";
@@ -12,6 +12,7 @@ import { requireAdmin } from "./auth.js";
 import { getSystemMetrics, getSystemLogs, getSystemTopology, getAiUsage } from "../services/system.js";
 import { getSetting, setSetting } from "../services/settings.js";
 import { getVaultStatus, startWatcher, stopWatcher } from "../ingest/watch.js";
+import { fetchDocs } from "../knowledge/docs.js";
 import { getEmbedder } from "../knowledge/embedder.js";
 import type { Actor } from "../db/schema.js";
 import { registerMcpRoutes } from "./mcp-routes.js";
@@ -128,6 +129,17 @@ app.get("/knowledge/source", async (c) => {
   const ref = c.req.query("ref");
   if (!kind || !ref) return c.json({ error: "Missing kind or ref" }, 400);
   return c.json({ text: await getKnowledgeSource(kind, ref) });
+});
+
+app.get("/knowledge/docs", async (c) => {
+  const library = c.req.query("library");
+  if (!library) return c.json({ error: "Missing library" }, 400);
+  const topic = c.req.query("topic") || undefined;
+  const result = await fetchDocs(library, topic);
+  if (result.ok && c.req.query("save") === "1") {
+    await upsertSourceDoc("session", `docs:context7:${library}`, result.text, getEmbedder());
+  }
+  return c.json(result);
 });
 
 // Session-start primer: a compact plain-text digest for agent hooks to inject
