@@ -1,15 +1,15 @@
-export function composePersonaPrompt(persona: "believer" | "investor" | "skeptic", idea: string): string {
-  const PERSONA_ROLE = {
-    believer: "optimist, best-case potential, cultural impact, enthusiastic",
-    investor: "realist, economics, effort/cost, time-to-market, maintenance burden, skeptical of hype",
-    skeptic: "roaster, actively destroy the idea, hidden flaws, market saturation, why users will not care, brutally honest"
-  };
+const PERSONA_ROLE: Record<"believer" | "investor" | "skeptic", string> = {
+  believer: "optimist, best-case potential, cultural impact, enthusiastic",
+  investor: "realist, economics, effort/cost, time-to-market, maintenance burden, skeptical of hype",
+  skeptic: "roaster, actively destroy the idea, hidden flaws, market saturation, why users will not care, brutally honest"
+};
 
+export function composePersonaPrompt(persona: "believer" | "investor" | "skeptic", idea: string): string {
   return [
     `Role: ${PERSONA_ROLE[persona]}`,
-    idea,
+    `Idea: ${idea}`,
     `Answer in under 300 words as plain text.`
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 export function composeChairmanPrompt(input: {
@@ -20,27 +20,29 @@ export function composeChairmanPrompt(input: {
   qa?: { question: string; answer: string }[];
 }): string {
   const parts = [
-    input.idea,
-    `=== COUNCIL believer ===\n${input.believer}`,
-    `=== COUNCIL investor ===\n${input.investor}`,
-    `=== COUNCIL skeptic ===\n${input.skeptic}`
+    `Idea: ${input.idea}`,
+    `Believer:\n${input.believer}`,
+    `Investor:\n${input.investor}`,
+    `Skeptic:\n${input.skeptic}`
   ];
 
   if (input.qa && input.qa.length > 0) {
-    const qaLines = input.qa.flatMap(qa => [`Q: ${qa.question}`, `A: ${qa.answer}`]);
-    parts.push(`Q&A History:\n${qaLines.join("\n")}`);
+    const qaBlock = input.qa.map(qa => `Q: ${qa.question}\nA: ${qa.answer}`).join("\n\n");
+    parts.push(`Q&A:\n${qaBlock}`);
   }
 
   parts.push(
-    `End your response exactly matching this output contract. Each marker must be on its own line:`,
-    `RATING: <integer 0-10>/10`,
-    `DECISION: GO or DECISION: NO-GO or DECISION: NEEDS-INFO`,
-    `QUESTIONS:`,
-    `- <optional question 1>`,
-    `- <optional question 2>`,
-    `TITLE: <one-line ticket title>`,
-    `SPEC:`,
-    `<problem, approach, acceptance criteria>`
+    [
+      `End with exactly this output contract at the end of the response, each on its own line:`,
+      `RATING: <integer 0-10>/10`,
+      `DECISION: GO or NO-GO or NEEDS-INFO`,
+      `QUESTIONS:`,
+      `- <question 1>`,
+      `- <question 2>`,
+      `TITLE: <one-line ticket title>`,
+      `SPEC:`,
+      `<full spec markdown>`
+    ].join("\n")
   );
 
   return parts.filter(Boolean).join("\n\n");
@@ -53,63 +55,47 @@ export function parseChairman(output: string): {
   title: string;
   spec: string;
 } {
-  // SPEC
-  const specMatch = [...output.matchAll(/^\s*SPEC:\s*$/gim)].at(-1);
-  let spec = "";
-  if (specMatch && specMatch.index !== undefined) {
-    spec = output.slice(specMatch.index + specMatch[0].length).replace(/^\s+/, "");
-  }
+  const ratingMatches = [...output.matchAll(/^\s*RATING:\s*(\d+)\/10\b/gim)];
+  const lastRating = ratingMatches.at(-1);
+  const rating = lastRating ? Math.min(10, Math.max(0, parseInt(lastRating[1], 10))) : 0;
 
-  // TITLE
-  const titleMatch = [...output.matchAll(/^\s*TITLE:\s*(.+)$/gim)].at(-1);
-  let title = "Untitled council ticket";
-  if (titleMatch && titleMatch[1]) {
-    title = titleMatch[1].trim();
-  } else {
-    const firstSpecLine = spec.split(/\r?\n/).find(line => line.trim().length > 0);
-    if (firstSpecLine) {
-      title = firstSpecLine.trim().substring(0, 80);
-    }
-  }
+  const decisionMatches = [...output.matchAll(/^\s*DECISION:\s*(GO|NO-GO|NEEDS-INFO)\b/gim)];
+  const lastDecisionMatch = decisionMatches.at(-1);
+  const decision = lastDecisionMatch ? (lastDecisionMatch[1] as "GO" | "NO-GO" | "NEEDS-INFO") : "NEEDS-INFO";
 
-  // RATING
-  const ratingMatch = [...output.matchAll(/^\s*RATING:\s*(\d+)\/10\b/gim)].at(-1);
-  let rating = 0;
-  if (ratingMatch && ratingMatch[1]) {
-    rating = parseInt(ratingMatch[1], 10);
-    if (isNaN(rating)) rating = 0;
-    rating = Math.max(0, Math.min(10, rating));
-  }
-
-  // DECISION
-  const decisionMatch = [...output.matchAll(/^\s*DECISION:\s*(GO|NO-GO|NEEDS-INFO)\b/gim)].at(-1);
-  let decision: "GO" | "NO-GO" | "NEEDS-INFO" = "NEEDS-INFO";
-  if (decisionMatch && decisionMatch[1]) {
-    const parsed = decisionMatch[1].toUpperCase();
-    if (parsed === "GO" || parsed === "NO-GO") {
-      decision = parsed;
-    }
-  }
-
-  // QUESTIONS
-  const questionsMatch = [...output.matchAll(/^\s*QUESTIONS:\s*$/gim)].at(-1);
+  const questionsMatches = [...output.matchAll(/^\s*QUESTIONS:\s*$/gim)];
+  const lastQuestionsMatch = questionsMatches.at(-1);
   const questions: string[] = [];
-  if (questionsMatch && questionsMatch.index !== undefined) {
-    const afterQ = output.slice(questionsMatch.index + questionsMatch[0].length);
-    const lines = afterQ.split(/\r?\n/);
-    let started = false;
-    // lines[0] is the rest of the QUESTIONS: line, which is empty because of `$` anchor
+  if (lastQuestionsMatch && lastQuestionsMatch.index !== undefined) {
+    const afterQuestions = output.substring(lastQuestionsMatch.index + lastQuestionsMatch[0].length);
+    const lines = afterQuestions.split(/\r?\n/);
     for (let i = 1; i < lines.length; i++) {
-      const line = lines[i];
-      if (!started && line.trim() === "") continue;
-
-      if (line.match(/^-\s+(.+)/)) {
-        started = true;
-        questions.push(line);
+      const qMatch = lines[i].match(/^-\s+(.+)/);
+      if (qMatch) {
+        questions.push(qMatch[1].trim());
         if (questions.length >= 5) break;
       } else {
         break;
       }
+    }
+  }
+
+  const specMatches = [...output.matchAll(/^\s*SPEC:\s*$/gim)];
+  const lastSpecMatch = specMatches.at(-1);
+  let spec = "";
+  if (lastSpecMatch && lastSpecMatch.index !== undefined) {
+    spec = output.substring(lastSpecMatch.index + lastSpecMatch[0].length).replace(/^\r?\n/, '');
+  }
+
+  const titleMatches = [...output.matchAll(/^\s*TITLE:\s*(.+)$/gim)];
+  const lastTitleMatch = titleMatches.at(-1);
+  let title = "Untitled council ticket";
+  if (lastTitleMatch) {
+    title = lastTitleMatch[1].trim();
+  } else if (spec) {
+    const specLines = spec.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+    if (specLines.length > 0) {
+      title = specLines[0].substring(0, 80);
     }
   }
 
