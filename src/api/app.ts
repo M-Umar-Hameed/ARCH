@@ -17,6 +17,7 @@ import type { Actor } from "../db/schema.js";
 import { registerMcpRoutes } from "./mcp-routes.js";
 import { registerForgeRoutes } from "./forge-routes.js";
 import { registerSkillsRoutes } from "./skills-routes.js";
+import { registerCouncilRoutes } from "./council-routes.js";
 
 export const app = new Hono<{ Variables: { actor: Actor } }>();
 
@@ -191,3 +192,4 @@ app.get("/system/agents", requireAdmin, async (c) => {
 registerMcpRoutes(app);
 registerForgeRoutes(app);
 registerSkillsRoutes(app);
+registerCouncilRoutes(app);

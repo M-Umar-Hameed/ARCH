@@ -14,6 +14,9 @@ const OUTPUTS = {
   work: "did it\nREPORT: changed x",
   "review-pass": "looks good\nVERDICT: PASS",
   "review-fail": "broken\nVERDICT: FAIL\n- fix y",
+  "persona": "persona view: fine idea",
+  "chairman-go": "looks good\nRATING: 8/10\nDECISION: GO\nTITLE: Council test ticket\nSPEC:\nspec line 1\nspec line 2",
+  "chairman-questions": "need info\nRATING: 5/10\nDECISION: NEEDS-INFO\nQUESTIONS:\n- q1\n- q2\nTITLE: Council test ticket\nSPEC:\nspec line 1",
 };
 
 function selectMode() {
