@@ -36,13 +36,20 @@ export function reviewDiffPayload(fullDiff: string, stat: string, cap = DIFF_PRO
 const NARRATION =
   "\n\nNarrate your reasoning out loud as you work: before each step, print what " +
   "you are about to do and why. Your narration is read live by the supervisor " +
-  "and by the reviewing model.";
+  "and by the reviewing model." +
+  // Absolute paths make sandboxed workers write at the REAL repo, which their
+  // own workspace security then denies (live incident: agy asked for write
+  // approval on D:\...\src, wrote nothing, and reported success anyway).
+  "\n\nAll file paths are relative to your current working directory. Never use " +
+  "absolute paths and never write outside your working directory, even if the " +
+  "plan shows absolute paths.";
 
 // Plan/review agents run in the REAL workdir; a permissive CLI would happily
 // write there (live incident: claude acceptEdits implemented during planning).
 const PLAN_ONLY =
   "\n\nOutput the plan as text only. Do NOT create, modify, or delete any files; " +
-  "implementation happens later in an isolated workspace.";
+  "implementation happens later in an isolated workspace. Refer to every file " +
+  "with repository-relative paths only (src/..., tests/...), never absolute paths.";
 
 type Stage = "plan" | "work" | "review";
 type Status = "running" | "passed" | "failed" | "stopped";
