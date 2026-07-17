@@ -6,7 +6,7 @@ import { addComment } from "../services/comments.js";
 import { getTicketHistory, searchTickets } from "../services/history.js";
 import { saveNote, updateNote, deleteNote, listNotes } from "../services/notes.js";
 import { searchKnowledge } from "../services/knowledge.js";
-
+import { fetchDocs } from "../knowledge/docs.js";
 export async function buildServer(apiKey: string) {
   const actor = await resolveActor(apiKey);
   const server = new McpServer({ name: "tickets", version: "0.1.0" });
@@ -61,6 +61,14 @@ export async function buildServer(apiKey: string) {
     async ({ query, limit }) => ({
       content: [{ type: "text", text: JSON.stringify(await searchKnowledge(query, { limit })) }],
     }));
+
+  server.registerTool("fetch_docs",
+    { description: "Fetch version-current library documentation via Context7 (opt-in)",
+      inputSchema: { library: z.string(), topic: z.string().optional() } },
+    async ({ library, topic }) => {
+      const { text } = await fetchDocs(library, topic);
+      return { content: [{ type: "text", text }] };
+    });
 
   return server;
 }
