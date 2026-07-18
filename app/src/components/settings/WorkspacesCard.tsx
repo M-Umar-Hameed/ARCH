@@ -3,31 +3,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 import type { Project } from "../../api/types.js";
 
-export function WorkspacesCard() {
+export function ProjectWorkspaceRow({ project }: { project: Project }) {
   const queryClient = useQueryClient();
-  const [editBuffers, setEditBuffers] = useState<Record<string, string>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const { data: projects = [], isLoading, error: fetchError } = useQuery<Project[]>({
-    queryKey: ["projects"],
-    queryFn: async () => await api.get("/projects"),
-  });
+  const [editValue, setEditValue] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (projects.length > 0) {
-      setEditBuffers((prev) => {
-        const next = { ...prev };
-        let changed = false;
-        projects.forEach((p) => {
-          if (next[p.id] === undefined) {
-            next[p.id] = p.repoPath || "";
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [projects]);
+    setEditValue(project.repoPath || "");
+  }, [project.repoPath]);
 
   const savePath = useMutation({
     mutationFn: async ({ id, repoPath }: { id: string; repoPath: string }) => {
@@ -47,33 +30,87 @@ export function WorkspacesCard() {
     },
   });
 
-  const handleSave = (e: FormEvent, p: Project) => {
+  const handleSave = (e: FormEvent) => {
     e.preventDefault();
-    setErrors((prev) => ({ ...prev, [p.id]: "" }));
+    setError("");
     savePath.mutate(
-      { id: p.id, repoPath: editBuffers[p.id] || "" },
+      { id: project.id, repoPath: editValue },
       {
         onError: (err: any) => {
-          setErrors((prev) => ({
-            ...prev,
-            [p.id]: err instanceof Error ? err.message : "Failed to save path",
-          }));
+          setError(err instanceof Error ? err.message : "Failed to save path");
         },
       }
     );
   };
 
-  const handleInitGit = (p: Project) => {
-    setErrors((prev) => ({ ...prev, [p.id]: "" }));
-    initGit.mutate(p.id, {
+  const handleInitGit = () => {
+    setError("");
+    initGit.mutate(project.id, {
       onError: (err: any) => {
-        setErrors((prev) => ({
-          ...prev,
-          [p.id]: err instanceof Error ? err.message : "Failed to initialize git",
-        }));
+        setError(err instanceof Error ? err.message : "Failed to initialize git");
       },
     });
   };
+
+  const originalValue = project.repoPath ?? "";
+  const isDirty = editValue !== originalValue;
+
+  return (
+    <div className="flex flex-col gap-2 pb-6 border-b border-white/5 last:border-0 last:pb-0">
+      <div className="flex items-center gap-3">
+        <span className="text-sm text-on-surface font-medium">{project.name}</span>
+        <span className="text-xs px-2 py-1 rounded bg-white/5 text-on-surface-variant">{project.key}</span>
+      </div>
+
+      <form onSubmit={handleSave} className="flex gap-2">
+        <input
+          type="text"
+          className="flex-1 min-w-0 bg-surface-container-lowest/50 border border-white/10 rounded px-3 py-2 text-sm text-on-surface focus:border-primary outline-none transition-colors"
+          placeholder="Absolute folder path"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+        />
+        <button
+          type="submit"
+          disabled={!isDirty || savePath.isPending}
+          className="shrink-0 px-4 py-2 rounded bg-white/5 hover:bg-primary hover:text-on-primary text-on-surface text-sm font-medium transition-all disabled:opacity-50"
+        >
+          Save
+        </button>
+      </form>
+
+      <div className="flex items-center gap-3 mt-1">
+        {project.isGit ? (
+          <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 font-medium">git</span>
+        ) : project.repoPath ? (
+          <>
+            <span className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-medium">not git</span>
+            <button
+              type="button"
+              onClick={handleInitGit}
+              disabled={initGit.isPending}
+              className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-primary hover:text-on-primary text-on-surface font-medium transition-all disabled:opacity-50"
+            >
+              Initialize git
+            </button>
+          </>
+        ) : (
+          <span className="text-xs px-2 py-1 rounded bg-white/5 text-on-surface-variant font-medium">default workdir</span>
+        )}
+      </div>
+
+      {error && (
+        <div className="text-xs text-error font-code-sm">{error}</div>
+      )}
+    </div>
+  );
+}
+
+export function WorkspacesCard() {
+  const { data: projects = [], isLoading, error: fetchError } = useQuery<Project[]>({
+    queryKey: ["projects"],
+    queryFn: async () => await api.get("/projects"),
+  });
 
   return (
     <div className="glass-card rounded-xl overflow-hidden border border-white/10 flex flex-col group hover:border-primary/30 transition-all duration-300">
@@ -100,61 +137,9 @@ export function WorkspacesCard() {
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            {projects.map((p) => {
-              const editValue = editBuffers[p.id] ?? p.repoPath ?? "";
-              const originalValue = p.repoPath ?? "";
-              const isDirty = editValue !== originalValue;
-
-              return (
-                <div key={p.id} className="flex flex-col gap-2 pb-6 border-b border-white/5 last:border-0 last:pb-0">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-on-surface font-medium">{p.name}</span>
-                    <span className="text-xs px-2 py-1 rounded bg-white/5 text-on-surface-variant">{p.key}</span>
-                  </div>
-
-                  <form onSubmit={(e) => handleSave(e, p)} className="flex gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 min-w-0 bg-surface-container-lowest/50 border border-white/10 rounded px-3 py-2 text-sm text-on-surface focus:border-primary outline-none transition-colors"
-                      placeholder="Absolute folder path"
-                      value={editValue}
-                      onChange={(e) => setEditBuffers((prev) => ({ ...prev, [p.id]: e.target.value }))}
-                    />
-                    <button
-                      type="submit"
-                      disabled={!isDirty || savePath.isPending}
-                      className="shrink-0 px-4 py-2 rounded bg-white/5 hover:bg-primary hover:text-on-primary text-on-surface text-sm font-medium transition-all disabled:opacity-50"
-                    >
-                      Save
-                    </button>
-                  </form>
-
-                  <div className="flex items-center gap-3 mt-1">
-                    {p.isGit ? (
-                      <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 font-medium">git</span>
-                    ) : p.repoPath ? (
-                      <>
-                        <span className="text-xs px-2 py-1 rounded bg-amber-500/20 text-amber-400 font-medium">not git</span>
-                        <button
-                          type="button"
-                          onClick={() => handleInitGit(p)}
-                          disabled={initGit.isPending}
-                          className="text-xs px-3 py-1 rounded bg-white/5 hover:bg-primary hover:text-on-primary text-on-surface font-medium transition-all disabled:opacity-50"
-                        >
-                          Initialize git
-                        </button>
-                      </>
-                    ) : (
-                      <span className="text-xs px-2 py-1 rounded bg-white/5 text-on-surface-variant font-medium">default workdir</span>
-                    )}
-                  </div>
-
-                  {errors[p.id] && (
-                    <div className="text-xs text-error font-code-sm">{errors[p.id]}</div>
-                  )}
-                </div>
-              );
-            })}
+            {projects.map((p) => (
+              <ProjectWorkspaceRow key={p.id} project={p} />
+            ))}
           </div>
         )}
       </div>
