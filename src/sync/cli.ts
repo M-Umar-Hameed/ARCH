@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 import { Octokit } from "@octokit/rest";
 import { makeGithubConnector } from "./connectors/github.js";
 import { makeGitLabConnector } from "./connectors/gitlab.js";
+import { makeJiraConnector } from "./connectors/jira.js";
 import { runSync } from "./import.js";
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -24,6 +25,17 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
       console.log(JSON.stringify(result));
     } catch (e) {
       console.error("gitlab sync run failed:", (e as Error).message);
+      process.exit(1);
+    }
+  }
+
+  const jiraProjectId = process.env.SYNC_JIRA_TARGET_PROJECT;
+  if (jiraProjectId) {
+    try {
+      const result = await runSync(makeJiraConnector(), { projectId: jiraProjectId });
+      console.log(JSON.stringify(result));
+    } catch (e) {
+      console.error("jira sync run failed:", (e as Error).message);
       process.exit(1);
     }
   }
