@@ -159,7 +159,7 @@ export function AIUsageTab() {
       </div>
 
       <p className="text-xs text-on-surface-variant/60 italic mt-3 ml-1">
-        Usage observed by VibeOps from local session logs. Provider quotas and reset limits live with each provider and aren't visible here.
+        Usage observed by VibeOps from local session logs, across ALL projects (per-project attribution ships with the usage-attribution ticket). Provider quotas and reset limits live with each provider and aren't visible here.
       </p>
 
       <h3 className="font-code-sm uppercase tracking-widest text-on-surface-variant/70 text-xs mb-4 ml-1 mt-8">Logged AI Usage</h3>

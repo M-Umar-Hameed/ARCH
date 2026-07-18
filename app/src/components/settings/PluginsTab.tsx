@@ -19,20 +19,23 @@ export function PluginsTab() {
 
   async function loadAll() {
     try {
-      const [inst, mkts, loc] = await Promise.all([
+      const [inst, mkts] = await Promise.all([
         api.get("/skills/installed") as Promise<InstalledSkill[]>,
-        api.get("/skills/marketplaces") as Promise<Marketplace[]>,
-        api.get("/skills/local") as Promise<{ name: string; managed: boolean }[]>
+        api.get("/skills/marketplaces") as Promise<Marketplace[]>
       ]);
       setInstalled(inst);
       setMarketplaces(mkts);
-      setLocalSkills(loc);
       setListError(null);
     } catch (e) {
       setListError(e instanceof Error ? e.message : "Failed to load skills");
     } finally {
       setLoading(false);
     }
+    // Optional extra (older sidecars lack the route): its failure must never
+    // blank the whole tab.
+    try {
+      setLocalSkills(await api.get("/skills/local") as { name: string; managed: boolean }[]);
+    } catch { /* detected-skills strip simply stays hidden */ }
   }
 
   useEffect(() => {
