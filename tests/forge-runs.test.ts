@@ -1,3 +1,4 @@
+import { runDoctor, type ProbeStatus } from "../src/relay/doctor.js";
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -369,3 +370,43 @@ describe("forge run manager", () => {
     rmSync(nonGitDir, { recursive: true, force: true });
   });
 });
+
+
+it("startPipeline returns doctorWarnings: [] when no doctor issue is cached", async () => {
+  const { actorId, ticket } = await seedTicket("Doctor happy path");
+  setScript("plan,work,review-pass", true);
+  const { runId, doctorWarnings } = await startPipeline(actorId, relayConfig(), {
+    ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+  });
+  expect(doctorWarnings).toEqual([]);
+  await awaitRun(runId);
+});
+
+it("startPipeline attaches a non-blocking warning when the cached probe soft-failed", async () => {
+  const { actorId, ticket } = await seedTicket("Doctor soft failure");
+  const config = relayConfig();
+  // Cache a soft failure directly (probe ran, exited non-zero) without
+  // touching the real fixture agent's spawnability.
+  const badConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [process.execPath, "-e", "process.exit(1)"] } } };
+  await runDoctor(badConfig, { fresh: true });
+
+  setScript("plan,work,review-pass", true);
+  const { runId, doctorWarnings } = await startPipeline(actorId, config, {
+    ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+  });
+  expect(doctorWarnings.some((w: string) => w.includes("fake"))).toBe(true);
+  await awaitRun(runId); // run still proceeds -- warning is non-blocking
+});
+
+it("startPipeline throws (400 upstream) when the cached probe is a spawn-level failure", async () => {
+  const { actorId, ticket } = await seedTicket("Doctor hard failure");
+  const config = relayConfig();
+  const missingPath = join(mkdtempSync(join(tmpdir(), "doctor-runs-missing-")), "gone-binary");
+  const brokenConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [missingPath] } } };
+  await runDoctor(brokenConfig, { fresh: true });
+
+  await expect(startPipeline(actorId, config, {
+    ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
+  })).rejects.toThrow(/cannot be spawned/);
+});
+

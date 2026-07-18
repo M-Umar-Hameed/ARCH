@@ -297,3 +297,55 @@ describe("forge API", () => {
     expect(res.status).toBe(400);
   });
 });
+
+it("GET /forge/doctor returns per-agent probe/auth status for the configured relay agents", async () => {
+  const h = await adminHeaders();
+  const res = await app.request(/forge/doctor, { headers: h });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body).toEqual([{
+    name: "fake", binary: "node", probe: { ok: true }, auth: { known: false, connected: null },
+    lastChecked: expect.any(String),
+  }]);
+});
+
+it("GET /forge/doctor?fresh=true bypasses the cache", async () => {
+  const h = await adminHeaders();
+  await app.request(/forge/doctor, { headers: h });
+  const res = await app.request(/forge/doctor?fresh=true, { headers: h });
+  expect(res.status).toBe(200);
+  expect((await res.json())[0].probe.ok).toBe(true);
+});
+
+it("POST /forge/pipeline response includes doctorWarnings", async () => {
+  const h = await adminHeaders();
+  const ticket = await seedTicket();
+  setScript("plan,work,review-pass", true);
+  const res = await app.request(/forge/pipeline, {
+    method: "POST", headers: h,
+    body: JSON.stringify({ ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake" }),
+  });
+  expect(res.status).toBe(201);
+  const body = await res.json();
+  expect(body).toHaveProperty("runId");
+  expect(body.doctorWarnings).toEqual([]);
+  await pollUntilDone(h, body.runId);
+});
+
+it("POST /forge/pipeline 400s naming the agent when the cached probe is a spawn-level failure", async () => {
+  const h = await adminHeaders();
+  const ticket = await seedTicket();
+  const missingPath = join(mkdtempSync(join(tmpdir(), "forge-api-doctor-missing-")), "gone-binary");
+  writeFileSync(relayConfigPath, JSON.stringify({
+    workdir,
+    agents: { fake: { cmd: [missingPath], roles: ["plan", "work", "review"] } },
+  }));
+  await app.request(/forge/doctor?fresh=true, { headers: h }); // populate the cache
+
+  const res = await app.request(/forge/pipeline, {
+    method: "POST", headers: h,
+    body: JSON.stringify({ ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake" }),
+  });
+  expect(res.status).toBe(400);
+  expect((await res.json()).error).toContain("cannot be spawned");
+});

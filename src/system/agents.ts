@@ -80,7 +80,7 @@ function sumCodexTokens(sinceDays: number, homeDir: string): AgentTokens {
   return t;
 }
 
-function readClaudeAccount(homeDir: string): AgentInfo {
+export function readClaudeAccount(homeDir: string): AgentInfo {
   const base: AgentInfo = { agent: "claude", connected: false, account: null, plan: null, authMode: "oauth", tokens: null };
   try {
     const j = JSON.parse(readFileSync(join(homeDir, ".claude.json"), "utf8"));
@@ -90,7 +90,7 @@ function readClaudeAccount(homeDir: string): AgentInfo {
   return base;
 }
 
-function readCodexAccount(homeDir: string): AgentInfo {
+export function readCodexAccount(homeDir: string): AgentInfo {
   const base: AgentInfo = { agent: "codex", connected: false, account: null, authMode: "unknown", tokens: null };
   try {
     const j = JSON.parse(readFileSync(join(homeDir, ".codex", "auth.json"), "utf8"));

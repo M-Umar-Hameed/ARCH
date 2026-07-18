@@ -58,6 +58,7 @@ test("guarded routes: 403 for member, non-403 for admin", { timeout: 60_000 }, a
     ["/system/logs", { headers: memberH }],
     ["/actors", { method: "POST", headers: memberH, body: JSON.stringify({ name: uniq("authz-nope"), kind: "agent" }) }],
     ["/forge/agents", { headers: memberH }],
+    ["/forge/doctor", { headers: memberH }],
     ["/forge/pipeline", { method: "POST", headers: memberH, body: JSON.stringify({}) }],
     ["/forge/runs", { headers: memberH }],
     ["/forge/tickets/00000000-0000-0000-0000-000000000000/resume", { method: "POST", headers: memberH }],

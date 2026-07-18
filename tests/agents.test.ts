@@ -2,7 +2,7 @@ import { expect, test } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, utimesSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { getAgents } from "../src/system/agents.js";
+import { getAgents, readClaudeAccount, readCodexAccount } from "../src/system/agents.js";
 
 function b64url(obj: object): string {
   return Buffer.from(JSON.stringify(obj)).toString("base64url");
@@ -96,4 +96,17 @@ test("splits fresh vs cache-read tokens for claude", async () => {
   expect(claude.tokens!.freshTokens! + claude.tokens!.cacheReadTokens!).toBeLessThan(claude.tokens!.totalTokens + claude.tokens!.cacheReadTokens!);
   // freshTokens excludes cache reads; totalTokens still includes them (unchanged compat field).
   expect(claude.tokens!.totalTokens).toBe(100 + 20 + 5000 + 50 + 200 + 10);
+});
+
+
+test("readClaudeAccount and readCodexAccount are exported for reuse (doctor probes), booleans only", () => {
+  const home = mkdtempSync(join(tmpdir(), "agents-export-"));
+  writeFileSync(join(home, ".claude.json"), JSON.stringify({
+    oauthAccount: { emailAddress: "export@example.com", seatTier: "max" },
+  }));
+  const claude = readClaudeAccount(home);
+  expect(claude.connected).toBe(true);
+
+  const codex = readCodexAccount(home);
+  expect(codex.connected).toBe(false);
 });

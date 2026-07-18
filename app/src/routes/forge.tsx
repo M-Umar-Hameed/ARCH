@@ -7,6 +7,7 @@ type Agent = { name: string; roles: string[]; models?: { name: string }[] };
 type Skill = { name: string };
 type SandboxStatus = { exists: boolean; branch?: string; lastVerdict?: string };
 type Diff = { diff: string };
+type DoctorStatus = { name: string; binary: string; probe: { ok: boolean; error?: string }; auth: { known: boolean; connected: boolean | null }; lastChecked: string };
 
 export function ForgeScreen() {
   const { activeProjectId } = useProject();
@@ -17,6 +18,7 @@ export function ForgeScreen() {
 
   const [agents, setAgents] = useState<Agent[]>([]);
   const [agentsError, setAgentsError] = useState("");
+  const [doctorStatuses, setDoctorStatuses] = useState<Record<string, DoctorStatus>>({});
   
   const [skills, setSkills] = useState<Skill[]>([]);
 
@@ -99,6 +101,14 @@ export function ForgeScreen() {
        .catch((err: any) => setAgentsError(err.message || "Failed to load agents"));
        
     api.get("/forge/skills").then(s => setSkills(s as Skill[])).catch(() => {});
+
+    api.get("/forge/doctor")
+       .then(d => {
+         const byName: Record<string, DoctorStatus> = {};
+         for (const s of d as DoctorStatus[]) byName[s.name] = s;
+         setDoctorStatuses(byName);
+       })
+       .catch(() => {}); // health dots are informational -- never block the panel
   }, []);
 
   useEffect(() => {
@@ -319,6 +329,12 @@ export function ForgeScreen() {
   const reviewAgents = agents.filter(a => a.roles.includes("review"));
 
   type ModelOption = { agent: string; model: string; label: string };
+  function dotColor(name: string): string {
+    const s = doctorStatuses[name];
+    if (!s) return "bg-white/20"; // never checked
+    return s.probe.ok ? "bg-green-500" : "bg-red-500";
+  }
+
   function roleOptions(list: Agent[]): ModelOption[] {
     return list.flatMap(a =>
       a.models && a.models.length > 0
@@ -400,6 +416,14 @@ export function ForgeScreen() {
                       <option key={`${o.agent}::${o.model}`} value={`${o.agent}::${o.model}`}>{o.label}</option>
                     ))}
                   </select>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {planAgents.map(a => (
+                      <span key={a.name} className="inline-flex items-center gap-1 text-[10px] text-on-surface-variant">
+                        <span data-testid={`doctor-dot-${a.name}`} className={`w-1.5 h-1.5 rounded-full ${dotColor(a.name)}`} />
+                        {a.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-code-sm text-on-surface-variant uppercase">Work Model</label>
@@ -409,6 +433,14 @@ export function ForgeScreen() {
                       <option key={`${o.agent}::${o.model}`} value={`${o.agent}::${o.model}`}>{o.label}</option>
                     ))}
                   </select>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {workAgents.map(a => (
+                      <span key={a.name} className="inline-flex items-center gap-1 text-[10px] text-on-surface-variant">
+                        <span data-testid={`doctor-dot-${a.name}`} className={`w-1.5 h-1.5 rounded-full ${dotColor(a.name)}`} />
+                        {a.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex flex-col gap-1">
                   <label className="text-xs font-code-sm text-on-surface-variant uppercase">Review Model</label>
@@ -418,6 +450,14 @@ export function ForgeScreen() {
                       <option key={`${o.agent}::${o.model}`} value={`${o.agent}::${o.model}`}>{o.label}</option>
                     ))}
                   </select>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {reviewAgents.map(a => (
+                      <span key={a.name} className="inline-flex items-center gap-1 text-[10px] text-on-surface-variant">
+                        <span data-testid={`doctor-dot-${a.name}`} className={`w-1.5 h-1.5 rounded-full ${dotColor(a.name)}`} />
+                        {a.name}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 

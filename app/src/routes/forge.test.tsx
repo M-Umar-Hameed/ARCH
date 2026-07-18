@@ -195,3 +195,27 @@ test("console appends polled chunks (mock two successive output responses, use f
   
   expect(pollCount).toBe(callCountAfterSettle);
 });
+
+test("renders a red health dot for an agent whose doctor probe failed", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "open" }];
+    if (path === "/forge/agents") return [
+      { name: "PlanGPT", roles: ["plan"] },
+      { name: "WorkGPT", roles: ["work"] },
+      { name: "ReviewGPT", roles: ["review"] },
+    ];
+    if (path === "/forge/skills") return [];
+    if (path === "/forge/doctor") return [
+      { name: "PlanGPT", binary: "plangpt", probe: { ok: false, error: "boom" }, auth: { known: false, connected: null }, lastChecked: "2026-07-18T00:00:00.000Z" },
+    ];
+    return {};
+  });
+
+  render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+  await waitFor(() => expect(screen.getByText("Pipeline Settings")).toBeInTheDocument());
+
+  const dot = await screen.findByTestId("doctor-dot-PlanGPT");
+  expect(dot.className).toContain("bg-red-500");
+});
