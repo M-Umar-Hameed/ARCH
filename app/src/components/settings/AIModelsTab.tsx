@@ -38,6 +38,19 @@ export function AIModelsTab() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings", "agents.commProfile"] }),
   });
 
+  const { data: selfImprove } = useQuery({
+    queryKey: ["settings", "prompts.selfImprove"],
+    queryFn: async () => {
+      const res = await api.get("/settings/prompts.selfImprove");
+      return (res.value as string) || "";
+    },
+  });
+
+  const setSelfImprove = useMutation({
+    mutationFn: (value: string) => api.patch("/settings/prompts.selfImprove", { value }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["settings", "prompts.selfImprove"] }),
+  });
+
   return (
     <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="mb-8 border-b border-white/10 pb-6">
@@ -138,6 +151,21 @@ export function AIModelsTab() {
                 <option value="caveman">Caveman</option>
                 <option value="humanizer">Humanizer</option>
               </select>
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              <input
+                id="self-improve"
+                type="checkbox"
+                checked={selfImprove === "true"}
+                onChange={(e) => setSelfImprove.mutate(e.target.checked ? "true" : "")}
+              />
+              <label htmlFor="self-improve" className="text-sm text-on-surface cursor-pointer">
+                Self-improving prompts
+                <span className="block text-xs text-on-surface-variant">
+                  After each forge run, a cheap model updates the prompt-lessons note that future prompts include. Editable in Notes.
+                </span>
+              </label>
             </div>
           </div>
 
