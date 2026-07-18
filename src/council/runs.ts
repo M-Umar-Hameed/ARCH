@@ -4,6 +4,8 @@ import { resolveCmd } from "../relay/config.js";
 import { pickAgents } from "../forge/router.js";
 import { runAgent } from "../relay/invoke.js";
 import { composeChairmanPrompt, composePersonaPrompt, parseChairman } from "./personas.js";
+import { roleStyle } from "../relay/style.js";
+import { getSetting } from "../services/settings.js";
 import { redactSecrets } from "../forge/redact.js";
 import { ConflictError, NotFoundError } from "../services/errors.js";
 import { createTicket } from "../services/tickets.js";
@@ -107,13 +109,14 @@ async function runChairman(session: Session, config: RelayConfig): Promise<void>
   const chairmanAgent = { ...config.agents[chairmanPick.agent] };
   chairmanAgent.cmd = resolveCmd(chairmanAgent, chairmanPick.model);
 
+  // Chairman output is user-facing (spec, verdict) — humanizer prose.
   const prompt = composeChairmanPrompt({
     idea: session.prompt,
     believer: session.believer!,
     investor: session.investor!,
     skeptic: session.skeptic!,
     qa: session.qa,
-  });
+  }) + roleStyle("chairman", (await getSetting("agents.commProfile")) ?? "");
 
   append(session, `\n=== COUNCIL chairman ===\n`);
   const res = await runAgent(chairmanAgent, prompt, config.workdir, (chunk) => append(session, chunk));

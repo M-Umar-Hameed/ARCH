@@ -4,7 +4,7 @@ import { requireAdmin } from "./auth.js";
 import { ConflictError, NotFoundError } from "../services/errors.js";
 import {
   addMarketplace, listMarketplaces, removeMarketplace,
-  installSkill, uninstallSkill, listInstalled,
+  installSkill, uninstallSkill, listInstalled, listLocalSkillDirs,
 } from "../skills/marketplace.js";
 
 type AppEnv = { Variables: { actor: Actor } };
@@ -51,4 +51,11 @@ export function registerSkillsRoutes(app: Hono<AppEnv>): void {
   });
 
   app.get("/skills/installed", requireAdmin, async (c) => c.json(await listInstalled()));
+
+  // Skills already on disk (hand-written or installed by other tools): listed
+  // read-only so the tab shows where the agents' current skills come from.
+  app.get("/skills/local", requireAdmin, async (c) => {
+    const managed = new Set((await listInstalled()).map((e) => e.dir));
+    return c.json(listLocalSkillDirs().map((name) => ({ name, managed: managed.has(name) })));
+  });
 }

@@ -27,11 +27,11 @@ test("selecting Maximum Intelligence persists the routing strategy via PATCH", a
   );
 });
 
-test("selecting Caveman persists the comm profile via PATCH", async () => {
+test("switching the comm profile to Off persists via PATCH", async () => {
   render(wrap(<AIModelsTab />));
   await waitFor(() => expect(screen.getByRole("combobox")).toBeInTheDocument());
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "caveman" } });
+  fireEvent.change(screen.getByRole("combobox"), { target: { value: "off" } });
   await waitFor(() =>
-    expect(apiFetch).toHaveBeenCalledWith("/settings/agents.commProfile", { method: "PATCH", body: { value: "caveman" } }),
+    expect(apiFetch).toHaveBeenCalledWith("/settings/agents.commProfile", { method: "PATCH", body: { value: "off" } }),
   );
 });

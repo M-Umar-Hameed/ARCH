@@ -53,6 +53,12 @@ function toDirToken(s: string): string {
 
 function validateMarketplaceUrl(url: string): void {
   if (process.env.VIBEOPS_SKILLS_ALLOW_LOCAL === "1") return; // test escape hatch for local path fixtures
+  // A local folder on the user's own disk is a legitimate marketplace (e.g.
+  // the in-repo vibeops-pack); git clone accepts plain paths.
+  if (/^[A-Za-z]:[\\/]/.test(url) || url.startsWith("/")) {
+    if (existsSync(url)) return;
+    throw new Error("local marketplace path does not exist");
+  }
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -163,6 +169,18 @@ function discoverPlainFormat(repoDir: string): DiscoveredSkill[] {
     const meta = readSkillMeta(skillMdPath, dir);
     return { name: meta.name, description: meta.description, dir, sourcePath };
   });
+}
+
+// Everything under ~/.claude/skills, managed or not — the tab's honest answer
+// to "where do my agents' current skills come from".
+export function listLocalSkillDirs(): string[] {
+  try {
+    return readdirSync(claudeSkillsDir(), { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => e.name);
+  } catch {
+    return [];
+  }
 }
 
 export function discoverSkills(repoDir: string): DiscoveredSkill[] {

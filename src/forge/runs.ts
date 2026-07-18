@@ -4,7 +4,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { resolveCmd, type RelayConfig, type RelayAgent } from "../relay/config.js";
-import { styleClause } from "../relay/style.js";
+import { roleStyle } from "../relay/style.js";
 import { composePlanPrompt, composeWorkPrompt, composeReviewPrompt, parseVerdict } from "../relay/prompts.js";
 import { runAgent, killTree } from "../relay/invoke.js";
 import { redactSecrets } from "./redact.js";
@@ -140,9 +140,14 @@ export async function startPipeline(
   if ((opts.extraPrompt ?? "").length > MAX_EXTRA_PROMPT) throw new Error("extraPrompt too long");
 
   const strategyRaw = await getSetting("ai.routing_strategy");
+  // The settings UI stores cost/max; the router speaks cheapest-first/
+  // quality-first. Accept both vocabularies (the control was silently a
+  // no-op before this mapping).
   const strategy: RoutingStrategy =
-    strategyRaw === "cheapest-first" || strategyRaw === "quality-first" ? strategyRaw : "balanced";
-  const style = styleClause(await getSetting("agents.commProfile"));
+    strategyRaw === "cheapest-first" || strategyRaw === "cost" ? "cheapest-first"
+    : strategyRaw === "quality-first" || strategyRaw === "max" ? "quality-first"
+    : "balanced";
+  const styleSetting = await getSetting("agents.commProfile");
   const lessons = lessonsClause(await getLessons());
   let auto: { plan: Pick; work: Pick; review: Pick } | undefined;
   const getAuto = () => (auto ??= pickAgents(config, strategy));
@@ -185,7 +190,7 @@ export async function startPipeline(
   };
   runs.set(run.id, run);
   trim();
-  run.done = pipeline(run, actorId, agents, workdir, style, lessons, config, opts.extraPrompt).catch(async (e) => {
+  run.done = pipeline(run, actorId, agents, workdir, styleSetting ?? "", lessons, config, opts.extraPrompt).catch(async (e) => {
     append(run, `\nforge: pipeline error: ${(e as Error).message}\n`);
     // Uphold the never-stuck-in_progress invariant even for unexpected throws
     // (forgeCommit/addComment failures land here, after the claim).
@@ -200,7 +205,7 @@ export async function startPipeline(
 
 async function pipeline(
   run: Run, actorId: string,
-  agents: { plan: RelayAgent; work: RelayAgent; review: RelayAgent }, workdir: string, style: string,
+  agents: { plan: RelayAgent; work: RelayAgent; review: RelayAgent }, workdir: string, styleSetting: string,
   lessons: string, config: RelayConfig, extraPrompt?: string,
 ): Promise<void> {
   const extra = extraPrompt ? `\n\nOperator instructions:\n${extraPrompt}` : "";
@@ -213,7 +218,7 @@ async function pipeline(
     append(run, `=== FORGE plan (${run.agents.plan}) ===\n`);
     const knowledge = await getKnowledgeSafe(ticket.title);
     const res = await track(actorId, ticket.id, "plan", run.agents.plan, () => runAgent(
-      agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + lessons + style + extra, workdir, onData,
+      agents.plan, composePlanPrompt({ ticket, knowledge }) + PLAN_ONLY + lessons + roleStyle("plan", styleSetting) + extra, workdir, onData,
       (child) => { run.child = child; },
     ));
     run.child = undefined;
@@ -239,7 +244,7 @@ async function pipeline(
   const lastReview = [...(await listComments(ticket.id))].reverse().find((c) => c.kind === "review");
   const findings = lastReview ? `\n\nPrevious review findings (address ALL of these):\n${lastReview.body}` : "";
   const workPrompt = composeWorkPrompt({ ticket, plan, knowledge, workdir: sandbox })
-    + findings + NARRATION + "\n\nDo NOT run git commit; the supervisor commits for you." + lessons + style + extra;
+    + findings + NARRATION + "\n\nDo NOT run git commit; the supervisor commits for you." + lessons + roleStyle("work", styleSetting) + extra;
   const workRes = await track(actorId, ticket.id, "work", run.agents.work, () =>
     runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; }));
   run.child = undefined;
@@ -256,7 +261,7 @@ async function pipeline(
   const stat = await sandboxDiffSummary(workdir, ticket.id);
   const reviewRes = await track(actorId, ticket.id, "review", run.agents.review, () => runAgent(
     agents.review,
-    composeReviewPrompt({ ticket, plan, report: workRes.output, diff: reviewDiffPayload(diff, stat) }),
+    composeReviewPrompt({ ticket, plan, report: workRes.output, diff: reviewDiffPayload(diff, stat) }) + roleStyle("review", styleSetting),
     workdir, onData,
     (child) => { run.child = child; },
   ));

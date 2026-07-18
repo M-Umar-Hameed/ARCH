@@ -12,6 +12,14 @@ Communication style: plain, natural prose that reads as if written by a careful 
 Vary sentence length so the text has a natural rhythm; short sentences are welcome. Use em dashes sparingly. Prefer concrete verbs over abstract noun phrases. Keep every explanation direct, grounded in the actual code or facts at hand, and free of filler.
 `;
 
+const PONYTAIL_CLAUSE = `
+Code policy: write the minimum code that solves the problem. Before writing anything new, reuse what already exists in the codebase, then the standard library, then an already-installed dependency. No speculative abstractions, no configurability nobody asked for, no scaffolding for later. Fix root causes in the shared path, never symptoms at one call site. The shortest working diff that satisfies the acceptance criteria wins.
+`;
+
+const PONYTAIL_REVIEW = `
+Additional review criteria: flag over-engineering as findings — reinvented stdlib, unneeded new dependencies, speculative abstractions, dead flexibility, or a diff larger than the task requires. Prefer the smallest change that satisfies the plan.
+`;
+
 export function styleClause(profile: string | null | undefined): string {
   if (profile === "caveman") {
     return CAVEMAN_CLAUSE;
@@ -20,4 +28,22 @@ export function styleClause(profile: string | null | undefined): string {
     return HUMANIZER_CLAUSE;
   }
   return "";
+}
+
+// Role-mapped policy (owner design): internal agent-to-agent traffic is terse
+// (caveman), human-facing output is natural prose (humanizer), and code work
+// always carries the ponytail discipline. The setting is only an off switch —
+// unset/auto/legacy values all mean ON; "off" disables everything.
+export type StyleRole = "plan" | "work" | "review" | "chairman";
+
+export function roleStyle(role: StyleRole, profileSetting: string | null | undefined): string {
+  if (profileSetting === "off") return "";
+  switch (role) {
+    case "plan": return CAVEMAN_CLAUSE;
+    case "work": return CAVEMAN_CLAUSE + PONYTAIL_CLAUSE;
+    // Reviews stay VERDICT-neutral: ponytail here is review criteria (what to
+    // look for), not output style.
+    case "review": return PONYTAIL_REVIEW;
+    case "chairman": return HUMANIZER_CLAUSE;
+  }
 }

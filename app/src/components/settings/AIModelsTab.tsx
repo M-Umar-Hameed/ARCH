@@ -6,7 +6,7 @@ import { AIUsageTab } from "./AIUsageTab.js";
 
 type SubTab = "providers" | "usage";
 type Strategy = "cost" | "max";
-type CommProfile = "off" | "caveman" | "humanizer";
+type CommProfile = "off" | "auto" | "caveman" | "humanizer";
 
 export function AIModelsTab() {
   const [activeTab, setActiveTab] = useState<SubTab>("providers");
@@ -138,18 +138,17 @@ export function AIModelsTab() {
                 <span className="material-symbols-outlined text-primary text-xl">forum</span>
                 Communication Profile
               </h3>
-              <p className="text-xs text-on-surface-variant mt-1">Adjust how the AI communicates its plans and progress.</p>
+              <p className="text-xs text-on-surface-variant mt-1">Auto: terse internal agent traffic, natural prose for user-facing output, ponytail code discipline on work and review. Off disables all style clauses.</p>
             </div>
             
             <div className="mt-2">
               <select
                 className="w-full sm:w-auto bg-surface-container-highest border border-white/10 rounded-md px-3 py-2 text-sm text-on-surface focus:outline-none focus:border-primary transition-colors"
-                value={commProfile ?? "off"}
+                value={commProfile === "off" ? "off" : "auto"}
                 onChange={(e) => setCommProfile.mutate(e.target.value as CommProfile)}
               >
+                <option value="auto">Auto (role-based)</option>
                 <option value="off">Off</option>
-                <option value="caveman">Caveman</option>
-                <option value="humanizer">Humanizer</option>
               </select>
             </div>
 
