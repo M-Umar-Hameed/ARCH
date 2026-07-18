@@ -4,6 +4,8 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
 const apiFetch = vi.fn();
 vi.mock("../../api/client.js", () => ({ apiFetch: (...a: any[]) => apiFetch(...a) }));
+// Link renders outside a RouterProvider in these tests
+vi.mock("@tanstack/react-router", () => ({ Link: (p: any) => <a href={p.to}>{p.children}</a> }));
 
 import { AIUsageTab } from "./AIUsageTab.js";
 const wrap = (ui: any) => (
@@ -70,7 +72,7 @@ test("antigravity shows an em dash when it exposes no token counts", async () =>
 
 test("shows an honest empty state instead of mock usage numbers", async () => {
   render(wrap(<AIUsageTab />));
-  await waitFor(() => expect(screen.getByText("No usage logged yet")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Usage tracks tokens and costs/)).toBeInTheDocument());
   expect(screen.queryByText(/Claude 3.5 Sonnet/)).not.toBeInTheDocument();
   expect(screen.queryByText(/Provider Token Quotas/)).not.toBeInTheDocument();
 });

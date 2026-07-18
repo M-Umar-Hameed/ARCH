@@ -13,7 +13,7 @@ beforeEach(async () => {
   fs.mkdirSync(tempHome, { recursive: true });
   process.env.VIBEOPS_RELAY_CONFIG = path.join(tempHome, "relay.json");
   
-  const actor = await createActor({ name: "test", kind: "human", role: "admin" });
+  const actor = await createActor({ name: "first-run-" + Math.random().toString(36).slice(2), kind: "human", role: "admin" });
   apiKey = actor.apiKey;
 });
 
@@ -21,6 +21,12 @@ afterEach(() => {
   fs.rmSync(tempHome, { recursive: true, force: true });
   delete process.env.VIBEOPS_RELAY_CONFIG;
 });
+
+// Shared test DB always has projects; first-run truth needs an empty list.
+vi.mock("../src/services/projects.js", async (importOriginal) => ({
+  ...(await importOriginal<any>()),
+  listProjects: async () => [],
+}));
 
 vi.mock("../src/relay/doctor.js", () => ({
   runDoctor: async () => [

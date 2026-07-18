@@ -4,7 +4,7 @@ import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
 const apiFetch = vi.fn();
 vi.mock("../api/client.js", () => ({ apiFetch: (...a: any[]) => apiFetch(...a) }));
-vi.mock("../lib/api.js", () => ({ api: { get: vi.fn(), post: vi.fn(), patch: vi.fn() } }));
+vi.mock("../lib/api.js", () => ({ api: { get: vi.fn(async () => ({})), post: vi.fn(async () => ({})), patch: vi.fn(async () => ({})) } }));
 vi.mock("../api/tickets.js", () => ({ tickets: { search: vi.fn(async () => []), create: vi.fn() } }));
 vi.mock("../api/projects.js", () => ({ projects: { list: vi.fn(async () => []), create: vi.fn() } }));
 
