@@ -40,20 +40,23 @@ function binBasename(cmd0: string): string {
   return ext ? b.slice(0, -ext.length) : b;
 }
 
+import { existsSync } from "node:fs";
+
 // Never touches agent.cmd's real template (which carries {prompt}/{promptFile}/
 // {model}) -- only cmd0 plus a static, per-basename --version-style arg vector.
 // This is what keeps the probe from ever sending a paid prompt.
 async function probeBinary(cmd0: string): Promise<ProbeStatus> {
+  if (!existsSync(cmd0)) {
+    return { ok: false, error: "spawn ENOENT", spawnFailed: true };
+  }
   const bin = binBasename(cmd0);
   const args = PROBE_ARGS[bin] ?? DEFAULT_PROBE_ARGS;
   try {
-    await execFileAsync(cmd0, args, { timeout: PROBE_TIMEOUT_MS, windowsHide: true });
+    const isWindowsScript = process.platform === "win32" && (cmd0.toLowerCase().endsWith(".cmd") || cmd0.toLowerCase().endsWith(".bat"));
+    await execFileAsync(cmd0, args, { timeout: PROBE_TIMEOUT_MS, windowsHide: true, shell: isWindowsScript });
     return { ok: true };
   } catch (e) {
     const err = e as NodeJS.ErrnoException & { stderr?: string };
-    // execFile sets `code` to the OS error string (ENOENT, EACCES, ...) when the
-    // process never started; a completed-but-nonzero exit sets `code` to the
-    // numeric exit code instead. Only the former means the binary is unreachable.
     const spawnFailed = typeof err.code === "string";
     const detail = (err.stderr ?? "").trim();
     return { ok: false, error: detail || err.message, spawnFailed };

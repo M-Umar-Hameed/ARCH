@@ -300,7 +300,7 @@ describe("forge API", () => {
 
 it("GET /forge/doctor returns per-agent probe/auth status for the configured relay agents", async () => {
   const h = await adminHeaders();
-  const res = await app.request(/forge/doctor, { headers: h });
+    const res = await app.request("/forge/doctor", { headers: h });
   expect(res.status).toBe(200);
   const body = await res.json();
   expect(body).toEqual([{
@@ -311,8 +311,8 @@ it("GET /forge/doctor returns per-agent probe/auth status for the configured rel
 
 it("GET /forge/doctor?fresh=true bypasses the cache", async () => {
   const h = await adminHeaders();
-  await app.request(/forge/doctor, { headers: h });
-  const res = await app.request(/forge/doctor?fresh=true, { headers: h });
+  await app.request("/forge/doctor", { headers: h });
+  const res = await app.request("/forge/doctor?fresh=true", { headers: h });
   expect(res.status).toBe(200);
   expect((await res.json())[0].probe.ok).toBe(true);
 });
@@ -321,7 +321,7 @@ it("POST /forge/pipeline response includes doctorWarnings", async () => {
   const h = await adminHeaders();
   const ticket = await seedTicket();
   setScript("plan,work,review-pass", true);
-  const res = await app.request(/forge/pipeline, {
+  const res = await app.request("/forge/pipeline", {
     method: "POST", headers: h,
     body: JSON.stringify({ ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake" }),
   });
@@ -340,9 +340,9 @@ it("POST /forge/pipeline 400s naming the agent when the cached probe is a spawn-
     workdir,
     agents: { fake: { cmd: [missingPath], roles: ["plan", "work", "review"] } },
   }));
-  await app.request(/forge/doctor?fresh=true, { headers: h }); // populate the cache
+  await app.request("/forge/doctor?fresh=true", { headers: h }); // populate the cache
 
-  const res = await app.request(/forge/pipeline, {
+  const res = await app.request("/forge/pipeline", {
     method: "POST", headers: h,
     body: JSON.stringify({ ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake" }),
   });

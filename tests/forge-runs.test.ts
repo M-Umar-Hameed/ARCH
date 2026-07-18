@@ -387,7 +387,7 @@ it("startPipeline attaches a non-blocking warning when the cached probe soft-fai
   const config = relayConfig();
   // Cache a soft failure directly (probe ran, exited non-zero) without
   // touching the real fixture agent's spawnability.
-  const badConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [process.execPath, "-e", "process.exit(1)"] } } };
+  const badConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [join(__dirname, "fixtures", "doctor-exit1.cmd")] } } };
   await runDoctor(badConfig, { fresh: true });
 
   setScript("plan,work,review-pass", true);
