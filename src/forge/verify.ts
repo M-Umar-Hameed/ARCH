@@ -1,4 +1,3 @@
-import { getTicket } from "../services/history.js";
 import { listComments } from "../services/comments.js";
 
 export const MISMATCH_WARNING = "WARNING: Model routing mismatch. The agent reported using a different model than requested.";
@@ -28,11 +27,21 @@ export function verifyModel(agentName: string, requestedModel: string | undefine
   return "unknown";
 }
 
-export async function computeVerificationStatus(ticketId: string): Promise<boolean | "unknown"> {
+// window: scope to one run's lifetime — comments are the only persistence and
+// carry no runId, so the run's [startedAt, finishedAt] bounds are the join.
+export async function computeVerificationStatus(
+  ticketId: string,
+  window?: { from: Date; to?: Date | null },
+): Promise<boolean | "unknown"> {
   try {
     const comments = await listComments(ticketId);
     let finalStatus: boolean | "unknown" = "unknown";
     for (const c of comments) {
+      if (window) {
+        const at = new Date(c.createdAt as any).getTime();
+        if (at < window.from.getTime() - 5000) continue;
+        if (window.to && at > new Date(window.to).getTime() + 5000) continue;
+      }
       if (c.body.includes("[forge: verification=mismatch]")) {
         return false;
       }

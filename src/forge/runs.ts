@@ -455,7 +455,10 @@ export async function listRunsWithHistory(): Promise<RunListItem[]> {
     .slice(0, LIST_CAP);
 
   const verificationPromises = list.map(async (item) => {
-    item.modelVerified = await computeVerificationStatus(item.ticketId);
+    item.modelVerified = await computeVerificationStatus(item.ticketId, {
+      from: new Date(item.startedAt),
+      to: item.finishedAt ? new Date(item.finishedAt) : null,
+    });
   });
   await Promise.all(verificationPromises);
 
