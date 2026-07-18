@@ -18,7 +18,7 @@ import { getSetting } from "../services/settings.js";
 import { projectWorkdir } from "../services/projects.js";
 import { ConflictError } from "../services/errors.js";
 import { logAgentUse, startAgentSession, endAgentSession } from "../services/usage.js";
-import { desc } from "drizzle-orm";
+import { desc, isNull } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { forgeRuns } from "../db/schema.js";
 
@@ -54,7 +54,7 @@ const PLAN_ONLY =
   "with repository-relative paths only (src/..., tests/...), never absolute paths.";
 
 type Stage = "plan" | "work" | "review";
-type Status = "running" | "passed" | "failed" | "stopped";
+type Status = "running" | "passed" | "failed" | "stopped" | "interrupted";
 
 type Run = {
   id: string; ticketId: string; stage: Stage; status: Status;
@@ -389,4 +389,17 @@ export function stopRun(id: string): boolean {
 
 export function awaitRun(id: string): Promise<void> {
   return runs.get(id)?.done ?? Promise.resolve();
+}
+
+export async function markInterruptedRuns(): Promise<string[]> {
+  try {
+    const rows = await db.update(forgeRuns)
+      .set({ status: "interrupted" })
+      .where(isNull(forgeRuns.finishedAt))
+      .returning({ ticketId: forgeRuns.ticketId });
+    return rows.map((r) => r.ticketId);
+  } catch (e) {
+    console.warn("forge: failed to mark interrupted runs:", (e as Error).message);
+    return [];
+  }
 }
