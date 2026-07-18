@@ -20,9 +20,10 @@ export function CreateScreen() {
   const [body, setBody] = useState("");
   const [priority, setPriority] = useState("normal");
   const [assigneeId, setAssigneeId] = useState("");
+  const [requiresVerification, setRequiresVerification] = useState(false);
 
   const createTicket = useMutation({
-    mutationFn: () => tickets.create({ projectId, title, body, priority, assigneeId: assigneeId || undefined }),
+    mutationFn: () => tickets.create({ projectId, title, body, priority, assigneeId: assigneeId || undefined, requiresVerification }),
     onSuccess: (t) => { qc.invalidateQueries({ queryKey: ["tickets"] }); nav({ to: "/tickets/$id", params: { id: t.id } }); },
   });
 
@@ -166,6 +167,14 @@ export function CreateScreen() {
           </div>
         </div>
 
+        {/* Verification */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 font-code-sm text-on-surface-variant cursor-pointer">
+            <input type="checkbox" checked={requiresVerification} onChange={(e) => setRequiresVerification(e.target.checked)} className="w-4 h-4 rounded border-white/10 bg-surface-container-lowest text-primary-fixed-dim focus:ring-primary-fixed-dim focus:ring-1 outline-none" />
+            Require verification to close
+          </label>
+        </div>
+
         {/* Footer Actions */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-6 border-t border-white/5">
           <button 
@@ -219,6 +228,7 @@ function CouncilPanel({ projects, activeProjectId, nav }: { projects: Project[];
   const [councilSpec, setCouncilSpec] = useState("");
   const [answers, setAnswers] = useState<string[]>([]);
   const [forceCreate, setForceCreate] = useState(false);
+  const [requiresVerification, setRequiresVerification] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
   const [submittingAnswers, setSubmittingAnswers] = useState(false);
   const [creatingTicket, setCreatingTicket] = useState(false);
@@ -327,7 +337,7 @@ function CouncilPanel({ projects, activeProjectId, nav }: { projects: Project[];
     setCreatingTicket(true);
     setCouncilError("");
     try {
-      const body: { projectId: string; force?: boolean } = { projectId: councilProjectId };
+      const body: { projectId: string; force?: boolean; requiresVerification?: boolean } = { projectId: councilProjectId, requiresVerification };
       if (councilDecision !== "GO" && forceCreate) body.force = true;
       const ticket = await api.post(`/council/${councilId}/create-ticket`, body) as { id: string };
       nav({ to: "/tickets/$id", params: { id: ticket.id } });
@@ -437,6 +447,10 @@ function CouncilPanel({ projects, activeProjectId, nav }: { projects: Project[];
               Create anyway
             </label>
           )}
+          <label className="flex items-center gap-2 text-sm text-on-surface-variant">
+            <input type="checkbox" checked={requiresVerification} onChange={(e) => setRequiresVerification(e.target.checked)} />
+            Require verification to close
+          </label>
           <button
             type="button"
             onClick={handleCreateTicket}

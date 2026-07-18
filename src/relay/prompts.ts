@@ -64,3 +64,9 @@ export function parseVerdict(output: string): { pass: boolean; raw: string } {
   const last = matches.at(-1);
   return { pass: last?.[1].toUpperCase() === "PASS", raw: output };
 }
+
+export function parseVerification(output: string): { pass: boolean } {
+  const matches = [...output.matchAll(/^\s*VERIFICATION:\s*(PASS)\b/gim)];
+  const last = matches.at(-1);
+  return { pass: last?.[1].toUpperCase() === "PASS" };
+}

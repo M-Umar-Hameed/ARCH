@@ -1,9 +1,9 @@
 export type Ticket = {
   id: string; projectId: string; title: string; body: string;
   status: "open" | "in_progress" | "closed"; priority: "low" | "normal" | "high";
-  assigneeId: string | null; version: number; createdAt: string; updatedAt: string;
+  assigneeId: string | null; requiresVerification: boolean; version: number; createdAt: string; updatedAt: string;
 };
-export type Comment = { id: string; ticketId: string; authorId: string; body: string; createdAt: string };
+export type Comment = { id: string; ticketId: string; authorId: string; body: string; createdAt: string; kind?: string };
 export type Event = {
   id: string; actorId: string; ticketId: string | null; noteId: string | null;
   action: string; changes: Record<string, { from: unknown; to: unknown }> | null; at: string;

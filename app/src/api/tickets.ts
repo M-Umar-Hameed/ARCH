@@ -5,7 +5,7 @@ export const tickets = {
     apiFetch("/tickets", { query: f }) as Promise<Ticket[]>,
   search: (q: string) => apiFetch("/search", { query: { q } }) as Promise<Ticket[]>,
   get: (id: string) => apiFetch(`/tickets/${id}`, {}) as Promise<Ticket>,
-  create: (input: { projectId: string; title: string; body?: string; priority?: string; assigneeId?: string }) =>
+  create: (input: { projectId: string; title: string; body?: string; priority?: string; assigneeId?: string; requiresVerification?: boolean }) =>
     apiFetch("/tickets", { method: "POST", body: input }) as Promise<Ticket>,
   update: (id: string, expectedVersion: number, patch: Record<string, unknown>) =>
     apiFetch(`/tickets/${id}`, { method: "PATCH", body: { expectedVersion, ...patch } }) as Promise<Ticket>,

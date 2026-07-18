@@ -6,6 +6,7 @@ import { history } from "../api/history.js";
 import { actors } from "../api/actors.js";
 import { StaleVersionError } from "../api/errors.js";
 import { system } from "../api/system.js";
+import { api } from "../lib/api.js";
 import { Avatar } from "../components/Avatar.js";
 import { AuditTimeline } from "../components/AuditTimeline.js";
 import { CommentList } from "../components/CommentList.js";
@@ -41,6 +42,16 @@ export function DetailScreen({ id }: { id: string }) {
     onSuccess: () => { setComment(""); qc.invalidateQueries({ queryKey: ["comments", id] }); qc.invalidateQueries({ queryKey: ["history", id] }); },
   });
 
+  const verifyTicket = useMutation({
+    mutationFn: () => api.post(`/tickets/${id}/verify`),
+    onSuccess: () => { 
+      qc.invalidateQueries({ queryKey: ["ticket", id] }); 
+      qc.invalidateQueries({ queryKey: ["history", id] }); 
+      qc.invalidateQueries({ queryKey: ["comments", id] }); 
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : "Failed to record verification"),
+  });
+
   if (tq.isLoading) return <div className="p-8 text-primary-fixed-dim neon-pulse font-code-sm">Loading ticket data...</div>;
   if (tq.isError && !tq.data) return <div className="p-8 text-error font-code-sm" role="alert">Failed to load ticket</div>;
   const t = tq.data!;
@@ -57,6 +68,21 @@ export function DetailScreen({ id }: { id: string }) {
           <div className="flex flex-wrap items-center justify-between gap-4">
             <span className="font-code-label text-primary-fixed-dim tracking-widest">#{t.id.substring(0,8)}</span>
             <div className="flex gap-2 items-center">
+              {t.requiresVerification && (
+                <span className="px-2 py-0.5 rounded border font-code-sm text-[10px] uppercase tracking-wider border-orange-500/30 bg-orange-500/10 text-orange-500">
+                  Verification Required
+                </span>
+              )}
+              {t.requiresVerification && (
+                <button
+                  type="button"
+                  onClick={() => verifyTicket.mutate()}
+                  disabled={verifyTicket.isPending}
+                  className="px-2 py-0.5 rounded font-code-sm text-[10px] uppercase tracking-wider bg-primary/20 text-primary hover:bg-primary/30 border border-primary/30 cursor-pointer disabled:opacity-50"
+                >
+                  Record verification
+                </button>
+              )}
               <span className={`px-2 py-0.5 rounded border font-code-sm text-[10px] uppercase tracking-wider ${t.priority === 'high' ? 'border-error/30 bg-error/10 text-error shadow-[0_0_8px_rgba(255,180,171,0.2)]' : 'border-secondary/30 bg-secondary/10 text-secondary'}`}>
                 {t.priority}
               </span>
