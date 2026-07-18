@@ -6,7 +6,9 @@ import React from "react";
 const apiFetch = vi.fn();
 vi.mock("../../api/client.js", () => ({ apiFetch: (...a: any[]) => apiFetch(...a) }));
 
-const mockStoreGet = vi.fn();
+// vi.mock factories hoist above const initializers; vi.hoisted keeps the
+// handle initialized first.
+const { mockStoreGet } = vi.hoisted(() => ({ mockStoreGet: vi.fn() }));
 vi.mock("@tauri-apps/plugin-store", () => ({
   load: vi.fn().mockResolvedValue({
     get: mockStoreGet,
