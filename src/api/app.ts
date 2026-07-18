@@ -44,7 +44,7 @@ app.patch("/tickets/:id", async (c) => {
   return c.json(t);
 });
 
-const COMMENT_KINDS = ["comment", "plan", "report", "review"] as const;
+const COMMENT_KINDS = ["comment", "plan", "report", "review", "verification"] as const;
 
 app.post("/tickets/:id/comments", async (c) => {
   const { body, kind } = await c.req.json();
@@ -56,6 +56,13 @@ app.post("/tickets/:id/comments", async (c) => {
 
 app.get("/tickets/:id/history", async (c) => c.json(await getTicketHistory(c.req.param("id"))));
 app.get("/tickets/:id/comments", async (c) => c.json(await listComments(c.req.param("id"))));
+
+app.post("/tickets/:id/verify", requireAdmin, async (c) => {
+  const { note } = await c.req.json().catch(() => ({}));
+  const body = `${note ?? "Verified by supervisor."}\n\nVERIFICATION: PASS`;
+  await addComment(c.get("actor").id, c.req.param("id"), body, "verification");
+  return c.json({ verified: true });
+});
 app.get("/tickets/:id", async (c) => c.json(await getTicket(c.req.param("id"))));
 app.get("/tickets", async (c) =>
   c.json(await listTickets({ projectId: c.req.query("projectId"), status: c.req.query("status") })));

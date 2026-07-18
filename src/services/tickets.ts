@@ -1,7 +1,8 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { tickets, events, type Ticket } from "../db/schema.js";
-import { NotFoundError, StaleVersionError } from "./errors.js";
+import { tickets, events, comments, actors, type Ticket } from "../db/schema.js";
+import { NotFoundError, StaleVersionError, ConflictError } from "./errors.js";
+import { parseVerification } from "../relay/prompts.js";
 
 export async function createTicket(
   actorId: string,
@@ -9,12 +10,14 @@ export async function createTicket(
     projectId: string; title: string; body?: string;
     priority?: "low" | "normal" | "high"; assigneeId?: string;
     status?: "open" | "in_progress" | "closed" | "planned" | "review";
+    requiresVerification?: boolean;
   },
 ): Promise<Ticket> {
   return db.transaction(async (tx) => {
     const [ticket] = await tx.insert(tickets).values({
       projectId: input.projectId, title: input.title, body: input.body ?? "",
       priority: input.priority ?? "normal", assigneeId: input.assigneeId, status: input.status,
+      requiresVerification: input.requiresVerification ?? false,
     }).returning();
     await tx.insert(events).values({
       actorId, ticketId: ticket.id, action: "ticket.created",
@@ -33,6 +36,7 @@ export async function updateTicket(
     status: "open" | "in_progress" | "closed" | "planned" | "review";
     priority: "low" | "normal" | "high";
     assigneeId: string | null;
+    requiresVerification: boolean;
   }>,
 ): Promise<Ticket> {
   return db.transaction(async (tx) => {
@@ -42,8 +46,17 @@ export async function updateTicket(
       throw new StaleVersionError(expectedVersion, current.version);
     }
 
+    if (patch.status === "closed" && current.requiresVerification) {
+      const authzRows = await tx.select({ body: comments.body }).from(comments)
+        .innerJoin(actors, eq(actors.id, comments.authorId))
+        .where(and(eq(comments.ticketId, id), eq(comments.kind, "verification"), eq(actors.role, "admin")));
+      
+      const verified = authzRows.some(row => parseVerification(row.body).pass);
+      if (!verified) throw new ConflictError("verification required before close");
+    }
+
     // Whitelist editable fields so a caller can't mass-assign columns like createdAt/projectId.
-    const ALLOWED = ["title", "body", "status", "priority", "assigneeId"] as const;
+    const ALLOWED = ["title", "body", "status", "priority", "assigneeId", "requiresVerification"] as const;
     const clean = Object.fromEntries(
       Object.entries(patch).filter(([k]) => (ALLOWED as readonly string[]).includes(k)),
     );

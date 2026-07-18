@@ -33,6 +33,7 @@ export const tickets = pgTable("tickets", {
   status: ticketStatus("status").notNull().default("open"),
   priority: ticketPriority("priority").notNull().default("normal"),
   assigneeId: uuid("assignee_id").references(() => actors.id),
+  requiresVerification: boolean("requires_verification").notNull().default(false),
   version: integer("version").notNull().default(1),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
