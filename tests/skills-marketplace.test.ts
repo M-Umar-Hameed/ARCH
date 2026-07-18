@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, unlinkSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, basename } from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   discoverSkills, addMarketplace, listMarketplaces, removeMarketplace,
@@ -192,5 +192,23 @@ describe("install lifecycle (fixture git repos, isolated skills home)", () => {
   it("rejects non-https marketplace URLs when the local escape hatch is off", async () => {
     delete process.env.VIBEOPS_SKILLS_ALLOW_LOCAL;
     await expect(addMarketplace("http://example.com/repo.git")).rejects.toThrow();
+  });
+
+  it("ignores manifest plugin sources that traverse outside the repo", () => {
+    const repo = mkdtempSync(join(tmpdir(), "skills-trav-"));
+    // A sibling dir that a traversal source would reach if unguarded.
+    const outside = mkdtempSync(join(tmpdir(), "skills-outside-"));
+    mkdirSync(join(outside, "skills", "stolen"), { recursive: true });
+    writeFileSync(join(outside, "skills", "stolen", "SKILL.md"), "---\nname: stolen\ndescription: x\n---\n");
+    mkdirSync(join(repo, ".claude-plugin"), { recursive: true });
+    writeFileSync(join(repo, ".claude-plugin", "marketplace.json"), JSON.stringify({
+      plugins: [
+        { name: "evil", source: join("..", basename(outside)) },
+        { name: "evil2", source: "../".repeat(8) },
+      ],
+    }));
+    expect(discoverSkills(repo)).toEqual([]);
+    rmSync(repo, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
   });
 });

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, join, resolve, sep } from "node:path";
 import { getSetting, setSetting } from "../services/settings.js";
 import { ConflictError, NotFoundError } from "../services/errors.js";
 
@@ -129,7 +129,10 @@ function discoverPluginFormat(repoDir: string, manifestPath: string): Discovered
   const skills: DiscoveredSkill[] = [];
   for (const plugin of manifest.plugins ?? []) {
     const pluginName = plugin.name ?? "plugin";
-    const pluginDir = join(repoDir, plugin.source ?? plugin.name ?? "");
+    // Manifest content is attacker-controlled: a "source" like ../../.. would
+    // walk discovery (and later install-copy) outside the cloned repo.
+    const pluginDir = resolve(repoDir, plugin.source ?? plugin.name ?? "");
+    if (!pluginDir.startsWith(resolve(repoDir) + sep) && pluginDir !== resolve(repoDir)) continue;
     const skillsGlobDir = join(pluginDir, "skills");
     let entries;
     try {
@@ -236,6 +239,12 @@ export async function installSkill(url: string, dir: string): Promise<InstalledS
   const owned = installed.some((e) => e.dir === dir);
   if (existsSync(target) && !owned) {
     throw new ConflictError(`"${dir}" already exists and is not managed by the registry`);
+  }
+  // Defense in depth against manifest-driven traversal: only copy from inside
+  // the marketplace clone, never elsewhere on the host.
+  const cloneRoot = resolve(marketplaceDir(url));
+  if (!resolve(skill.sourcePath).startsWith(cloneRoot + sep)) {
+    throw new ConflictError("skill source escapes the marketplace clone");
   }
   mkdirSync(claudeSkillsDir(), { recursive: true });
   cpSync(skill.sourcePath, target, { recursive: true });
