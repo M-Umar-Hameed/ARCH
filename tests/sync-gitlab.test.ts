@@ -135,7 +135,10 @@ async function newProject() {
 }
 
 test("(f) engine e2e, idempotent second run", async () => {
-  __setSettingsForTest({ "gitlab.token": "t", "gitlab.project": "p" });
+  // Unique project per execution: sync_links persist in the shared test DB, so
+  // a reused external id makes every run after the first skip-create and fail.
+  const proj = `p${Date.now()}${Math.random().toString(36).slice(2, 6)}`;
+  __setSettingsForTest({ "gitlab.token": "t", "gitlab.project": proj });
   const projectId = await newProject();
   
   const responses = [
