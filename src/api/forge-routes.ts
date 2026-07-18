@@ -129,10 +129,10 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     if (ticket.status !== "open" && ticket.status !== "planned") {
       return c.json({ error: "ticket must be open or planned to resume" }, 409);
     }
-    const { runId } = await startPipeline(c.get("actor").id, forgeConfig(), {
+    const { runId, doctorWarnings } = await startPipeline(c.get("actor").id, forgeConfig(), {
       ticketId, planAgent: "auto", workAgent: "auto", reviewAgent: "auto",
     });
-    return c.json({ runId }, 201);
+    return c.json({ runId, doctorWarnings }, 201);
   });
 
   app.get("/forge/tickets/:id/diff", requireAdmin, async (c) => {
