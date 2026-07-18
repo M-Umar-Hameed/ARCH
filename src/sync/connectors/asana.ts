@@ -1,7 +1,7 @@
 import { getSetting } from "../../services/settings.js";
 import type { SourceConnector, ExternalTicket, ExternalComment } from "../connector.js";
 
-export function makeAsanaConnector(fetchImpl: typeof fetch = fetch): SourceConnector {
+export function makeAsanaConnector(fetchImpl: typeof fetch = fetch, bindingOverride?: string): SourceConnector {
   async function paginatedGet(urlStr: string, headers: Record<string, string>): Promise<any[]> {
     const results: any[] = [];
     let currentUrl: string | null = urlStr;
@@ -29,7 +29,7 @@ export function makeAsanaConnector(fetchImpl: typeof fetch = fetch): SourceConne
     source: "asana",
     async listExternalTickets(since?: Date): Promise<ExternalTicket[]> {
       const pat = await getSetting("asana.pat");
-      const projectGid = await getSetting("asana.projectGid");
+      const projectGid = bindingOverride ?? (await getSetting("asana.projectGid"));
 
       if (!pat || !projectGid) {
         console.warn("Asana connector skipped: missing asana.pat or asana.projectGid setting");

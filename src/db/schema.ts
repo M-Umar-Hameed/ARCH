@@ -1,5 +1,5 @@
 import {
-  pgTable, uuid, text, integer, timestamp, jsonb, pgEnum, index, uniqueIndex, check, vector, boolean,
+  pgTable, uuid, text, integer, timestamp, jsonb, pgEnum, index, uniqueIndex, check, vector, boolean, primaryKey,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -127,6 +127,16 @@ export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+export const projectSettings = pgTable('project_settings', {
+  projectId: uuid('project_id').notNull().references(() => projects.id),
+  key: text('key').notNull(),
+  value: text('value').notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.projectId, t.key] }),
+}));
+
+export type ProjectSetting = typeof projectSettings.$inferSelect;
 
 export const aiUsageLogs = pgTable('ai_usage_logs', {
   id: uuid('id').primaryKey().defaultRandom(),

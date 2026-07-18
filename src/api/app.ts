@@ -6,7 +6,7 @@ import { getTicket, getTicketHistory, listTickets, searchTickets } from "../serv
 import { saveNote, updateNote, deleteNote, listNotes, getNote } from "../services/notes.js";
 import { searchKnowledge, getKnowledgeSource, upsertSourceDoc, listSessionDocs, knowledgeGraph } from "../services/knowledge.js";
 import { AuthError, ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../services/errors.js";
-import { listProjects, createProject, updateProjectRepo, gitInitProject } from "../services/projects.js";
+import { listProjects, createProject, updateProjectRepo, gitInitProject, getProjectSettings, setProjectSetting } from "../services/projects.js";
 import { listActors, createActor, revokeActor } from "../services/actors.js";
 import { requireAdmin } from "./auth.js";
 import { getSystemMetrics, getSystemLogs, getSystemTopology, getAiUsage, getSystemStatus } from "../services/system.js";
@@ -77,6 +77,23 @@ app.patch("/projects/:id", requireAdmin, async (c) => {
   }
 });
 app.post("/projects/:id/git-init", requireAdmin, async (c) => c.json(await gitInitProject(c.req.param("id"))));
+
+app.get("/projects/:id/settings", requireAdmin, async (c) => {
+  return c.json(await getProjectSettings(c.req.param("id")));
+});
+
+app.put("/projects/:id/settings/:key", requireAdmin, async (c) => {
+  const { value } = await c.req.json();
+  if (typeof value !== "string") return c.json({ error: "value must be a string" }, 400);
+  try {
+    await setProjectSetting(c.req.param("id"), c.req.param("key"), value);
+    return c.json({ ok: true });
+  } catch (e) {
+    if (e instanceof NotFoundError) throw e;
+    return c.json({ error: (e as Error).message }, 400);
+  }
+});
+
 app.get("/actors", async (c) => c.json(await listActors()));
 app.post("/actors", requireAdmin, async (c) => {
   const { name, kind, role } = await c.req.json().catch(() => ({}));

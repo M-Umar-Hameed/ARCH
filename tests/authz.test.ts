@@ -72,6 +72,8 @@ test("guarded routes: 403 for member, non-403 for admin", { timeout: 60_000 }, a
     ["/skills/installed", { headers: memberH }],
     ["/projects/00000000-0000-0000-0000-000000000000", { method: "PATCH", headers: memberH, body: JSON.stringify({ repoPath: "" }) }],
     ["/projects/00000000-0000-0000-0000-000000000000/git-init", { method: "POST", headers: memberH }],
+    ["/projects/00000000-0000-0000-0000-000000000000/settings", { headers: memberH }],
+    ["/projects/00000000-0000-0000-0000-000000000000/settings/github.repo", { method: "PUT", headers: memberH, body: JSON.stringify({ value: "x" }) }],
   ];
   for (const [path, init] of memberChecks) {
     const res = await app.request(path, init);

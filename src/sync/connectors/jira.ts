@@ -11,7 +11,7 @@ function flattenAdf(doc: any): string {
   return doc.content.map(walkText).filter(Boolean).join("\n");
 }
 
-export function makeJiraConnector(fetchImpl: typeof fetch = fetch): SourceConnector {
+export function makeJiraConnector(fetchImpl: typeof fetch = fetch, bindingOverride?: string): SourceConnector {
   async function searchIssues(urlStr: string, headers: Record<string, string>): Promise<any[]> {
     const results: any[] = [];
     let startAt: number = 0;
@@ -40,7 +40,7 @@ export function makeJiraConnector(fetchImpl: typeof fetch = fetch): SourceConnec
       const baseUrl = await getSetting("jira.baseUrl");
       const email = await getSetting("jira.email");
       const apiToken = await getSetting("jira.apiToken");
-      const project = await getSetting("jira.project");
+      const project = bindingOverride ?? (await getSetting("jira.project"));
 
       if (!baseUrl || !email || !apiToken || !project) {
         console.warn("Jira connector skipped: missing jira.baseUrl, jira.email, jira.apiToken, or jira.project setting");

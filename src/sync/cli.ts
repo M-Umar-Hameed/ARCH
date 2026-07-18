@@ -5,50 +5,59 @@ import { makeGitLabConnector } from "./connectors/gitlab.js";
 import { makeJiraConnector } from "./connectors/jira.js";
 import { makeAsanaConnector } from "./connectors/asana.js";
 import { runSync } from "./import.js";
+import { boundProjects } from "../services/projects.js";
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const repo = process.env.SYNC_GITHUB_REPO;
-  const projectId = process.env.SYNC_GITHUB_PROJECT;
-  if (!repo || !projectId) throw new Error("SYNC_GITHUB_REPO and SYNC_GITHUB_PROJECT are required");
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-  try {
-    const result = await runSync(makeGithubConnector(octokit, repo), { projectId });
-    console.log(JSON.stringify(result));
-  } catch (e) {
-    console.error("sync run failed:", (e as Error).message);
-    process.exit(1);
-  }
 
-  const gitlabProjectId = process.env.SYNC_GITLAB_TARGET_PROJECT;
-  if (gitlabProjectId) {
+  const ghBindings = await boundProjects("github.repo");
+  if (ghBindings.length > 0) {
+    for (const { projectId, binding } of ghBindings) {
+      try {
+        const result = await runSync(makeGithubConnector(octokit, binding), { projectId });
+        console.log(JSON.stringify(result));
+      } catch (e) {
+        console.error("github sync run failed for binding:", (e as Error).message);
+        process.exitCode = 1;
+      }
+    }
+  } else {
+    const repo = process.env.SYNC_GITHUB_REPO;
+    const projectId = process.env.SYNC_GITHUB_PROJECT;
+    if (!repo || !projectId) throw new Error("SYNC_GITHUB_REPO and SYNC_GITHUB_PROJECT are required");
     try {
-      const result = await runSync(makeGitLabConnector(), { projectId: gitlabProjectId });
+      const result = await runSync(makeGithubConnector(octokit, repo), { projectId });
       console.log(JSON.stringify(result));
     } catch (e) {
-      console.error("gitlab sync run failed:", (e as Error).message);
+      console.error("sync run failed:", (e as Error).message);
       process.exit(1);
     }
   }
 
-  const jiraProjectId = process.env.SYNC_JIRA_TARGET_PROJECT;
-  if (jiraProjectId) {
-    try {
-      const result = await runSync(makeJiraConnector(), { projectId: jiraProjectId });
-      console.log(JSON.stringify(result));
-    } catch (e) {
-      console.error("jira sync run failed:", (e as Error).message);
-      process.exit(1);
+  async function runConnector(key: string, factory: (b?: string) => any, legacyProject?: string) {
+    const bindings = await boundProjects(key);
+    if (bindings.length > 0) {
+      for (const { projectId, binding } of bindings) {
+        try {
+          const result = await runSync(factory(binding), { projectId });
+          console.log(JSON.stringify(result));
+        } catch (e) {
+          console.error(`${key} sync run failed for binding ${binding}:`, (e as Error).message);
+          process.exitCode = 1;
+        }
+      }
+    } else if (legacyProject) {
+      try {
+        const result = await runSync(factory(), { projectId: legacyProject });
+        console.log(JSON.stringify(result));
+      } catch (e) {
+        console.error(`${key.split('.')[0]} sync run failed:`, (e as Error).message);
+        process.exit(1);
+      }
     }
   }
 
-  const asanaProjectId = process.env.SYNC_ASANA_TARGET_PROJECT;
-  if (asanaProjectId) {
-    try {
-      const result = await runSync(makeAsanaConnector(), { projectId: asanaProjectId });
-      console.log(JSON.stringify(result));
-    } catch (e) {
-      console.error("asana sync run failed:", (e as Error).message);
-      process.exit(1);
-    }
-  }
+  await runConnector("gitlab.project", (b) => makeGitLabConnector(undefined, b), process.env.SYNC_GITLAB_TARGET_PROJECT);
+  await runConnector("jira.project", (b) => makeJiraConnector(undefined, b), process.env.SYNC_JIRA_TARGET_PROJECT);
+  await runConnector("asana.projectGid", (b) => makeAsanaConnector(undefined, b), process.env.SYNC_ASANA_TARGET_PROJECT);
 }

@@ -1,9 +1,9 @@
 import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../db/client.js";
-import { projects, type Project } from "../db/schema.js";
+import { projects, projectSettings, type Project } from "../db/schema.js";
 import { ConflictError, NotFoundError } from "./errors.js";
 
 // Never-throw: a workspace folder can vanish (moved/deleted) after being set.
@@ -82,4 +82,32 @@ export async function gitInitProject(id: string): Promise<Project & { isGit: boo
   const { code, out } = await gitInit(p.repoPath);
   if (code !== 0) throw new Error(`git init failed: ${out.trim()}`);
   return { ...p, isGit: true };
+}
+
+export async function getProjectSettings(projectId: string): Promise<Record<string, string>> {
+  const rows = await db.select().from(projectSettings).where(eq(projectSettings.projectId, projectId));
+  const result: Record<string, string> = {};
+  for (const r of rows) result[r.key] = r.value;
+  return result;
+}
+
+const ALLOWED_SETTINGS = new Set(["github.repo", "gitlab.project", "jira.project", "asana.projectGid"]);
+
+export async function setProjectSetting(projectId: string, key: string, value: string): Promise<void> {
+  if (!ALLOWED_SETTINGS.has(key)) throw new Error(`invalid project setting key: ${key}`);
+  const [p] = await db.select().from(projects).where(eq(projects.id, projectId));
+  if (!p) throw new NotFoundError(`project not found: ${projectId}`);
+
+  if (value === "") {
+    await db.delete(projectSettings).where(and(eq(projectSettings.projectId, projectId), eq(projectSettings.key, key)));
+  } else {
+    await db.insert(projectSettings)
+      .values({ projectId, key, value })
+      .onConflictDoUpdate({ target: [projectSettings.projectId, projectSettings.key], set: { value } });
+  }
+}
+
+export async function boundProjects(connectorKey: string): Promise<{ projectId: string; binding: string }[]> {
+  const rows = await db.select().from(projectSettings).where(eq(projectSettings.key, connectorKey));
+  return rows.map(r => ({ projectId: r.projectId, binding: r.value }));
 }
