@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { StaleVersionError } from "../api/errors.js";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
@@ -53,7 +54,8 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
       await api.post("/relay/bootstrap");
       setStep(3);
     } catch (err: any) {
-      if (err.message && err.message.includes("409")) setStep(3);
+      // 409 (already bootstrapped) surfaces as StaleVersionError from the client
+      if (err instanceof StaleVersionError) setStep(3);
       else setBootstrapErr(err.message || "Failed");
     } finally {
       setIsSubmitting(false);
