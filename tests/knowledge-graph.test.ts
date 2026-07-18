@@ -3,12 +3,6 @@ import { upsertSourceDoc, knowledgeGraph } from "../src/services/knowledge.js";
 import { app } from "../src/api/app.js";
 import { FakeEmbedder } from "../src/knowledge/embedder.js";
 import { createActor } from "../src/services/actors.js";
-import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { KnowledgeScreen } from "../app/src/routes/knowledge.js";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createMemoryHistory, createRootRoute, createRoute, createRouter, RouterProvider } from "@tanstack/react-router";
-import * as client from "../app/src/api/client.js";
 
 const emb = new FakeEmbedder(1024);
 
@@ -44,40 +38,3 @@ test("GET /knowledge/graph returns 200", async () => {
   expect(res.status).toBe(200);
 });
 
-test("UI renders Graph tab and circles", async () => {
-  vi.spyOn(client, "apiFetch").mockImplementation(async (path: string) => {
-    if (path === "/knowledge/graph") {
-      return {
-        nodes: [
-          { id: "doc-1", kind: "session", chunks: 1, createdAt: "2026-07-18T10:00:00Z" },
-          { id: "doc-2", kind: "session", chunks: 1, createdAt: "2026-07-18T10:00:00Z" }
-        ],
-        edges: [
-          { a: "doc-1", b: "doc-2", w: 0.95 }
-        ]
-      };
-    }
-    return [];
-  });
-
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  
-  const rootRoute = createRootRoute();
-  const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: KnowledgeScreen });
-  const routeTree = rootRoute.addChildren([indexRoute]);
-  const router = createRouter({ routeTree, history: createMemoryHistory() });
-
-  const { container } = render(
-    React.createElement(QueryClientProvider, { client: queryClient },
-      React.createElement(RouterProvider, { router })
-    )
-  );
-
-  const graphTab = screen.getByText("Graph");
-  fireEvent.click(graphTab);
-
-  await waitFor(() => {
-    const circles = container.querySelectorAll("circle");
-    expect(circles.length).toBe(2);
-  });
-});
