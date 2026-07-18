@@ -52,7 +52,9 @@ export async function getSystemLogs() {
   return [];
 }
 
-export async function getAiUsage() {
+// perTicketLimit widened only by tests: fixture tickets can never crack the
+// real top-10 in the shared accumulating DB.
+export async function getAiUsage(perTicketLimit = 10) {
   const usageStats = await db.select({
     provider: aiUsageLogs.provider,
     model: aiUsageLogs.model,
@@ -77,7 +79,7 @@ export async function getAiUsage() {
   .where(isNotNull(aiUsageLogs.ticketId))
   .groupBy(aiUsageLogs.ticketId, tickets.title)
   .orderBy(desc(sql`sum(${aiUsageLogs.tokens})`))
-  .limit(10);
+  .limit(perTicketLimit);
 
   const totalCost = usageStats.reduce((acc, curr) => acc + ((curr.cost || 0) / 1e6), 0);
   const totalTokens = usageStats.reduce((acc, curr) => acc + Number(curr.tokens || 0), 0);

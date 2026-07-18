@@ -155,9 +155,14 @@ describe("usage writers", () => {
     expect(data.agents.length).toBeGreaterThan(0);
     expect(data.overview.totalTokens).toBeGreaterThan(0);
     
-    const myTicket = data.perTicket.find((t: any) => t.ticketId === ticket.id);
+    // Route caps perTicket to top-10 by tokens; fixture tickets can't crack
+    // that ranking in the shared accumulating DB, so assert via the service
+    // with a wide limit.
+    const { getAiUsage } = await import("../src/services/system.js");
+    const wide = await getAiUsage(1_000_000);
+    const myTicket = wide.perTicket.find((t: any) => t.ticketId === ticket.id);
     expect(myTicket).toBeDefined();
-    expect(myTicket.tokens).toBeGreaterThan(0);
-    expect(myTicket.title).toBe("Usage endpoint path");
+    expect(myTicket!.tokens).toBeGreaterThan(0);
+    expect(myTicket!.title).toBe("Usage endpoint path");
   });
 });
