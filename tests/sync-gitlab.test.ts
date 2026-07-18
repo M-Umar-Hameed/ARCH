@@ -2,7 +2,9 @@ import { expect, test, vi } from "vitest";
 import { makeGitLabConnector } from "../src/sync/connectors/gitlab.js";
 import { runSync } from "../src/sync/import.js";
 import { db } from "../src/db/client.js";
-import { projects } from "../src/db/schema.js";
+import { projects, tickets as ticketsTable } from "../src/db/schema.js";
+import { eq } from "drizzle-orm";
+import { boundProjects, setProjectSetting } from "../src/services/projects.js";
 
 vi.mock("../src/services/settings.js", () => {
   let settings: Record<string, string> = {};
@@ -164,4 +166,37 @@ test("(f) engine e2e, idempotent second run", async () => {
   expect(result.created).toBe(0);
   expect(result.skipped).toBe(1);
   expect(result.commentsAdded).toBe(0);
+});
+
+test("(g) runSync-per-binding engine logic", async () => {
+  const p1 = await newProject();
+  const p2 = await newProject();
+  const b1 = `org/repo1-${Date.now()}`;
+  const b2 = `org/repo2-${Date.now()}`;
+  await setProjectSetting(p1, "gitlab.project", b1);
+  await setProjectSetting(p2, "gitlab.project", b2);
+
+  const fetchImpl = vi.fn(async (url) => {
+    if (url.includes(b1)) {
+      return { ok: true, json: async () => url.includes("/notes") ? [] : [{ iid: 10, title: "T1", state: "opened" }], headers: new Headers() };
+    }
+    if (url.includes(b2)) {
+      return { ok: true, json: async () => url.includes("/notes") ? [] : [{ iid: 20, title: "T2", state: "opened" }], headers: new Headers() };
+    }
+    return { ok: true, json: async () => [], headers: new Headers() };
+  });
+
+  const bindings = await boundProjects("gitlab.project");
+  for (const { projectId, binding } of bindings) {
+    if (projectId === p1 || projectId === p2) {
+      await runSync(makeGitLabConnector(fetchImpl as any, binding), { projectId });
+    }
+  }
+
+  const t1 = await db.select().from(ticketsTable).where(eq(ticketsTable.projectId, p1));
+  const t2 = await db.select().from(ticketsTable).where(eq(ticketsTable.projectId, p2));
+  expect(t1).toHaveLength(1);
+  expect(t1[0].title).toBe("T1");
+  expect(t2).toHaveLength(1);
+  expect(t2[0].title).toBe("T2");
 });

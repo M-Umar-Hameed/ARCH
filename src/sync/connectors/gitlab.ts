@@ -1,7 +1,7 @@
 import { getSetting } from "../../services/settings.js";
 import type { SourceConnector, ExternalTicket, ExternalComment } from "../connector.js";
 
-export function makeGitLabConnector(fetchImpl: typeof fetch = fetch): SourceConnector {
+export function makeGitLabConnector(fetchImpl: typeof fetch = fetch, bindingOverride?: string): SourceConnector {
   async function paginatedGet(urlStr: string, headers: Record<string, string>): Promise<any[]> {
     const results: any[] = [];
     let currentUrl: string | null = urlStr;
@@ -30,7 +30,7 @@ export function makeGitLabConnector(fetchImpl: typeof fetch = fetch): SourceConn
     source: "gitlab",
     async listExternalTickets(since?: Date): Promise<ExternalTicket[]> {
       const token = await getSetting("gitlab.token");
-      const project = await getSetting("gitlab.project");
+      const project = bindingOverride ?? (await getSetting("gitlab.project"));
       const baseUrl = (await getSetting("gitlab.baseUrl")) || "https://gitlab.com";
 
       if (!token || !project) {

@@ -1,7 +1,11 @@
 import type { Octokit } from "@octokit/rest";
 import type { SourceConnector, ExternalTicket } from "../connector.js";
 
-export function makeGithubConnector(octokit: Octokit, repo: string): SourceConnector {
+export function makeGithubConnector(octokit: Octokit, bindingOverride?: string): SourceConnector {
+  const repo = bindingOverride ?? process.env.SYNC_GITHUB_REPO;
+  if (!repo) {
+    return { source: "github", listExternalTickets: async () => [] };
+  }
   const [owner, name] = repo.split("/");
   return {
     source: "github",
