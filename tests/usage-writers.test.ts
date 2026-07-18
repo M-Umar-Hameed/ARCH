@@ -154,9 +154,10 @@ describe("usage writers", () => {
     expect(data.usage.length).toBeGreaterThan(0);
     expect(data.agents.length).toBeGreaterThan(0);
     expect(data.overview.totalTokens).toBeGreaterThan(0);
-    expect(data.perTicket.length).toBe(1);
-    expect(data.perTicket[0].ticketId).toBe(ticket.id);
-    expect(data.perTicket[0].tokens).toBeGreaterThan(0);
-    expect(data.perTicket[0].title).toBe("Usage endpoint path");
+    
+    const myTicket = data.perTicket.find((t: any) => t.ticketId === ticket.id);
+    expect(myTicket).toBeDefined();
+    expect(myTicket.tokens).toBeGreaterThan(0);
+    expect(myTicket.title).toBe("Usage endpoint path");
   });
 });

@@ -2,8 +2,6 @@ import { eq } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { aiUsageLogs, agentSessions } from "../db/schema.js";
 
-// ponytail: ai_usage_logs only has provider/model/tokens/cost columns (see
-// drizzle/0004_friendly_gorgon.sql) — wait, we added ticketId/actorId/durationMs.
 // We keep the fuller entry shape for call-site clarity. Headless CLIs don't report
 // real usage, so tokens are estimated. ok is tracked separately via agent_sessions.status.
 export type UsageEntry = {
