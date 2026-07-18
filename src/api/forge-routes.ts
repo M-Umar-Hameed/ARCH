@@ -4,6 +4,7 @@ import { join } from "node:path";
 import type { Hono } from "hono";
 import type { Actor } from "../db/schema.js";
 import { loadRelayConfig } from "../relay/config.js";
+import { runDoctor } from "../relay/doctor.js";
 import { parseVerdict } from "../relay/prompts.js";
 import { startPipeline, listRunsWithHistory, getRunOutput, stopRun, resolveWorkdir } from "../forge/runs.js";
 import {
@@ -59,6 +60,12 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     return c.json([...names].map((name) => ({ name })));
   });
 
+  app.get("/forge/doctor", requireAdmin, async (c) => {
+    const fresh = c.req.query("fresh") === "true";
+    const statuses = await runDoctor(forgeConfig(), { fresh });
+    return c.json(statuses);
+  });
+
   app.post("/forge/pipeline", requireAdmin, async (c) => {
     const body = await c.req.json().catch(() => ({}));
     const { ticketId, planAgent, workAgent, reviewAgent, extraPrompt, planModel, workModel, reviewModel, force } = body;
@@ -74,10 +81,10 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     }
 
     try {
-      const { runId } = await startPipeline(c.get("actor").id, forgeConfig(), {
+      const { runId, doctorWarnings } = await startPipeline(c.get("actor").id, forgeConfig(), {
         ticketId, planAgent, workAgent, reviewAgent, extraPrompt, planModel, workModel, reviewModel, force,
       });
-      return c.json({ runId }, 201);
+      return c.json({ runId, doctorWarnings }, 201);
     } catch (e) {
       if (e instanceof ConflictError || e instanceof NotFoundError) throw e;
       return c.json({ error: (e as Error).message }, 400);
@@ -122,10 +129,10 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     if (ticket.status !== "open" && ticket.status !== "planned") {
       return c.json({ error: "ticket must be open or planned to resume" }, 409);
     }
-    const { runId } = await startPipeline(c.get("actor").id, forgeConfig(), {
+    const { runId, doctorWarnings } = await startPipeline(c.get("actor").id, forgeConfig(), {
       ticketId, planAgent: "auto", workAgent: "auto", reviewAgent: "auto",
     });
-    return c.json({ runId }, 201);
+    return c.json({ runId, doctorWarnings }, 201);
   });
 
   app.get("/forge/tickets/:id/diff", requireAdmin, async (c) => {

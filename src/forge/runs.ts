@@ -4,6 +4,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ChildProcess } from "node:child_process";
 import { resolveCmd, type RelayConfig, type RelayAgent } from "../relay/config.js";
+import { pipelineStartWarnings, pipelineStartBlockingError } from "../relay/doctor.js";
 import { roleStyle } from "../relay/style.js";
 import { composePlanPrompt, composeWorkPrompt, composeReviewPrompt, parseVerdict } from "../relay/prompts.js";
 import { runAgent, killTree } from "../relay/invoke.js";
@@ -136,7 +137,7 @@ export async function startPipeline(
     ticketId: string; planAgent: string; workAgent: string; reviewAgent: string; extraPrompt?: string;
     planModel?: string; workModel?: string; reviewModel?: string; force?: boolean;
   },
-): Promise<{ runId: string }> {
+): Promise<{ runId: string; doctorWarnings: string[] }> {
   if ((opts.extraPrompt ?? "").length > MAX_EXTRA_PROMPT) throw new Error("extraPrompt too long");
 
   if (!opts.force) {
@@ -166,6 +167,14 @@ export async function startPipeline(
     const attempts = await countFailedReviews(opts.ticketId);
     workPick = escalate(pairsForRole(config, "work"), workPick, attempts);
   }
+
+  // Cache-only doctor check: a spawn-level failure (binary renamed/missing)
+  // fails fast here instead of stalling silently mid-pipeline; a soft failure
+  // (binary ran, exited non-zero -- e.g. auth expired) is only a warning.
+  const chosenAgentNames = [planPick.agent, workPick.agent, reviewPick.agent];
+  const blocking = pipelineStartBlockingError(chosenAgentNames);
+  if (blocking) throw new Error(blocking);
+  const doctorWarnings = pipelineStartWarnings(chosenAgentNames);
 
   const agents = {
     plan: { ...getAgent(config, planPick.agent, "plan") },
@@ -206,7 +215,7 @@ export async function startPipeline(
   // settled for pollers, and awaitRun covers the analyzer (a detached spawn
   // held test workdirs as its cwd during cleanup — Windows EPERM).
   }).then(() => analyzeRun(run, actorId, config)).catch(() => {});
-  return { runId: run.id };
+  return { runId: run.id, doctorWarnings };
 }
 
 async function pipeline(
