@@ -63,7 +63,8 @@ test("renders inputs from mocked GET settings, Save PUTs the right key/value, cl
     });
   });
 
-  // Test clear
+  // Test clear - must re-enter edit mode first
+  fireEvent.click(screen.getByRole("button", { name: "Edit Binding" }));
   fireEvent.click(screen.getByRole("button", { name: "Clear" }));
   
   await waitFor(() => {
