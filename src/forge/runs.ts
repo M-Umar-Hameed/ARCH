@@ -190,8 +190,11 @@ export async function startPipeline(
     // Uphold the never-stuck-in_progress invariant even for unexpected throws
     // (forgeCommit/addComment failures land here, after the claim).
     await bounce(run, actorId, "pipeline error", (e as Error).message);
-    settle(run, "failed", actorId, config);
-  });
+    settle(run, "failed");
+  // Analyzer runs AFTER any settle path and INSIDE run.done: the run is already
+  // settled for pollers, and awaitRun covers the analyzer (a detached spawn
+  // held test workdirs as its cwd during cleanup — Windows EPERM).
+  }).then(() => analyzeRun(run, actorId, config)).catch(() => {});
   return { runId: run.id };
 }
 
@@ -214,8 +217,8 @@ async function pipeline(
       (child) => { run.child = child; },
     ));
     run.child = undefined;
-    if (run.stopped) return settle(run, "stopped", actorId, config);
-    if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed", actorId, config); }
+    if (run.stopped) return settle(run, "stopped");
+    if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed"); }
     // Comments are the DURABLE record — redact them too, not just the console.
     await addComment(actorId, ticket.id, redactSecrets(res.output), "plan");
     ticket = await updateTicket(actorId, ticket.id, ticket.version, { status: "planned" });
@@ -240,8 +243,8 @@ async function pipeline(
   const workRes = await track(actorId, ticket.id, "work", run.agents.work, () =>
     runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; }));
   run.child = undefined;
-  if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped", actorId, config); }
-  if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed", actorId, config); }
+  if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
+  if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
   await forgeCommit(ticket.id, ticket.title);
   await addComment(actorId, ticket.id, redactSecrets(workRes.output), "report");
   ticket = await updateTicket(actorId, ticket.id, ticket.version, { status: "review" });
@@ -258,7 +261,7 @@ async function pipeline(
     (child) => { run.child = child; },
   ));
   run.child = undefined;
-  if (run.stopped) return settle(run, "stopped", actorId, config);
+  if (run.stopped) return settle(run, "stopped");
   const verdict = parseVerdict(reviewRes.output);
   await addComment(actorId, ticket.id, redactSecrets(verdict.raw), "review");
   if (!verdict.pass) {
@@ -266,14 +269,13 @@ async function pipeline(
     await updateTicket(actorId, ticket.id, ticket.version, { status: "planned" });
   }
   // PASS: ticket STAYS in review — promotion is a human action.
-  settle(run, "passed", actorId, config);
+  settle(run, "passed");
 }
 
-function settle(run: Run, status: Status, actorId?: string, config?: RelayConfig): void {
+function settle(run: Run, status: Status): void {
   run.status = status;
   run.finishedAt = new Date().toISOString();
   void persistRun(run); // fire-and-forget: history must never break a pipeline
-  if (actorId && config) void analyzeRun(run, actorId, config);
 }
 
 // Single choke point for run-history rows. Best-effort: comments already hold
