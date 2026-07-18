@@ -115,9 +115,14 @@ function composite(pick: Pick): string {
   return pick.model ? `${pick.agent}:${pick.model}` : pick.agent;
 }
 
-function applyVerification(res: { ok: boolean; output: string }, compositeName: string, run: Run): void {
+function applyVerification(res: { ok: boolean; output: string }, compositeName: string, run: Run, config: RelayConfig): void {
   const [agentName, requestedModel] = compositeName.split(":");
-  const status = verifyModel(agentName, requestedModel, res.output);
+  // Match on the actual BINARY, not the relay.json key — users key agents
+  // freely ("fable", "agy-gemini"), the CLI's output format follows the exe.
+  const cmd0 = config.agents[agentName]?.cmd[0] ?? agentName;
+  const base = cmd0.replace(/\\/g, "/").split("/").pop() ?? agentName;
+  const binary = base.replace(/\.(exe|cmd|bat)$/i, "");
+  const status = verifyModel(binary, requestedModel, res.output);
   if (status !== "unknown") {
     const marker = `\n\n[forge: verification=${status}]`;
     res.output += marker;
@@ -253,7 +258,7 @@ async function pipeline(
     ));
     run.child = undefined;
     if (run.stopped) return settle(run, "stopped");
-    applyVerification(res, run.agents.plan, run);
+    applyVerification(res, run.agents.plan, run, config);
     if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed"); }
     // Comments are the DURABLE record — redact them too, not just the console.
     await addComment(actorId, ticket.id, redactSecrets(res.output), "plan");
@@ -280,7 +285,7 @@ async function pipeline(
     runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; }));
   run.child = undefined;
   if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
-  applyVerification(workRes, run.agents.work, run);
+  applyVerification(workRes, run.agents.work, run, config);
   if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
   await forgeCommit(ticket.id, ticket.title);
   await addComment(actorId, ticket.id, redactSecrets(workRes.output), "report");
@@ -299,7 +304,7 @@ async function pipeline(
   ));
   run.child = undefined;
   if (run.stopped) return settle(run, "stopped");
-  applyVerification(reviewRes, run.agents.review, run);
+  applyVerification(reviewRes, run.agents.review, run, config);
   const verdict = parseVerdict(reviewRes.output);
   await addComment(actorId, ticket.id, redactSecrets(verdict.raw), "review");
   if (!verdict.pass) {
