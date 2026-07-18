@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../lib/api.js";
 
 export interface ProjectBindingsCardProps {
+  id: string; // connector slug for callers/keys; not used internally
   projectId: string;
-  id: string; // e.g. "github"
+  // e.g. "github"
   title: string;
   subtitle: string;
   icon: React.ReactNode;
@@ -17,7 +18,6 @@ export interface ProjectBindingsCardProps {
 
 export function ProjectBindingsCard({
   projectId,
-  id,
   title,
   subtitle,
   icon,

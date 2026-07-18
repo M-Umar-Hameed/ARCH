@@ -20,7 +20,7 @@ function TestWrapper({ children }: { children: React.ReactNode }) {
 }
 
 test("renders inputs from mocked GET settings, Save PUTs the right key/value, clear PUTs empty", async () => {
-  apiFetch.mockImplementation(async (path, opts) => {
+  apiFetch.mockImplementation(async (path) => {
     if (path === "/projects/p1/settings") return { "github.repo": "owner/testrepo" };
     if (path === "/settings/github.token") return { value: "some-token" };
     return {};
