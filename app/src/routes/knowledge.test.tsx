@@ -99,6 +99,30 @@ test("creating a note with a title calls notes.save", async () => {
   await waitFor(() => expect(notesSave).toHaveBeenCalledWith({ body: "new body", scope: "global", title: "My title" }));
 });
 
+test("sessions tab renders filtered rows and opens active source on click", async () => {
+  apiFetch.mockImplementation(async (url) => {
+    if (url === "/knowledge/sessions") {
+      return [
+        { ref: "session-ref-12345", chunkCount: 3, created_at: "2026-07-18T10:00:00Z", excerpt: "excerpt 1" },
+        { ref: "session-other-678", chunkCount: 1, created_at: "2026-07-18T11:00:00Z", excerpt: "excerpt 2" }
+      ];
+    }
+    return { codex: { indexed: 1, skipped: 0, failed: 0 }, "claude-code": { indexed: 38, skipped: 2, failed: 0 } };
+  });
+
+  render(wrap(<KnowledgeScreen />));
+  fireEvent.click(screen.getByText("Sessions"));
+  await waitFor(() => expect(screen.getByText(/session-ref-12345/)).toBeInTheDocument());
+  expect(screen.getByText(/session-other-678/)).toBeInTheDocument();
+  
+  fireEvent.change(screen.getByPlaceholderText("Filter by session ref..."), { target: { value: "12345" } });
+  expect(screen.getByText(/session-ref-12345/)).toBeInTheDocument();
+  expect(screen.queryByText(/session-other-678/)).not.toBeInTheDocument();
+  
+  fireEvent.click(screen.getByText(/session-ref-12345/));
+  await waitFor(() => expect(screen.getByText("Fetching Node Source...")).toBeInTheDocument());
+});
+
 test("sync sessions button reports a per-source summary", async () => {
   render(wrap(<KnowledgeScreen />));
   fireEvent.click(screen.getByText("Sync sessions"));

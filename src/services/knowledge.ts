@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { and, eq, isNull, sql as dsql } from "drizzle-orm";
+import { and, eq, isNull, inArray, sql as dsql } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { embeddings, notes } from "../db/schema.js";
 import { chunkMarkdown } from "../knowledge/chunker.js";
@@ -113,6 +113,34 @@ export async function searchKnowledge(
     content: r.content, sourceKind: r.source_kind, sourceRef: r.source_ref,
     score: Number(r.score), citation: r.source_ref,
     createdAt: new Date(r.created_at).toISOString(),
+  }));
+}
+
+export async function listSessionDocs(limit = 50): Promise<{ ref: string; chunkCount: number; created_at: string; excerpt: string }[]> {
+  const rows: unknown = await db.execute(dsql`
+    SELECT source_ref, count(id) as chunk_count, max(created_at) as created_at
+    FROM embeddings
+    WHERE source_kind = 'session'
+    GROUP BY source_ref
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `);
+  
+  const aggRows = (Array.isArray(rows) ? rows : (rows as { rows: unknown[] }).rows) as any[];
+  if (!aggRows.length) return [];
+  
+  const refs = aggRows.map(r => String(r.source_ref));
+  const chunkRows = await db.select({ sourceRef: embeddings.sourceRef, content: embeddings.content })
+    .from(embeddings)
+    .where(and(eq(embeddings.sourceKind, "session"), eq(embeddings.chunkIndex, 0), inArray(embeddings.sourceRef, refs)));
+    
+  const chunkMap = new Map(chunkRows.map(c => [c.sourceRef, c.content]));
+  
+  return aggRows.map(r => ({
+    ref: r.source_ref,
+    chunkCount: Number(r.chunk_count),
+    created_at: new Date(r.created_at).toISOString(),
+    excerpt: (chunkMap.get(r.source_ref) || "").slice(0, 200)
   }));
 }
 

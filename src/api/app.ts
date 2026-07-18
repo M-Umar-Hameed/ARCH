@@ -4,7 +4,7 @@ import { createTicket, updateTicket } from "../services/tickets.js";
 import { addComment, listComments } from "../services/comments.js";
 import { getTicket, getTicketHistory, listTickets, searchTickets } from "../services/history.js";
 import { saveNote, updateNote, deleteNote, listNotes, getNote } from "../services/notes.js";
-import { searchKnowledge, getKnowledgeSource, upsertSourceDoc } from "../services/knowledge.js";
+import { searchKnowledge, getKnowledgeSource, upsertSourceDoc, listSessionDocs } from "../services/knowledge.js";
 import { AuthError, ConflictError, ForbiddenError, NotFoundError, StaleVersionError } from "../services/errors.js";
 import { listProjects, createProject, updateProjectRepo, gitInitProject } from "../services/projects.js";
 import { listActors, createActor, revokeActor } from "../services/actors.js";
@@ -124,6 +124,12 @@ app.get("/knowledge", async (c) => {
   const n = Number(c.req.query("limit"));
   const limit = Number.isFinite(n) && n > 0 ? n : undefined;
   return c.json(await searchKnowledge(q, { limit }));
+});
+
+app.get("/knowledge/sessions", async (c) => {
+  const n = Number(c.req.query("limit"));
+  const limit = Number.isFinite(n) && n > 0 ? n : undefined;
+  return c.json(await listSessionDocs(limit));
 });
 
 app.get("/knowledge/source", async (c) => {

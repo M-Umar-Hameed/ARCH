@@ -12,8 +12,11 @@ export function KnowledgeScreen() {
   const [q, setQ] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [activeSource, setActiveSource] = useState<{kind: string, ref: string, citation: string} | null>(null);
+  const [tab, setTab] = useState<"Search" | "Sessions">("Search");
+  const [sessionFilter, setSessionFilter] = useState("");
   
   const sq = useQuery({ queryKey: ["knowledge", submitted], queryFn: () => knowledge.search(submitted), enabled: !!submitted });
+  const sessionsQuery = useQuery({ queryKey: ["sessions"], queryFn: () => apiFetch("/knowledge/sessions") as Promise<{ref: string, chunkCount: number, created_at: string, excerpt: string}[]>, enabled: tab === "Sessions" });
   
   const sourceQuery = useQuery({
     queryKey: ["source", activeSource?.kind, activeSource?.ref],
@@ -47,7 +50,17 @@ export function KnowledgeScreen() {
           <div className="text-center space-y-2 mb-8">
             <h2 className="font-headline-lg text-headline-lg text-on-surface">Universal Knowledge Index</h2>
             <p className="font-code-sm text-on-surface-variant/70 uppercase tracking-widest">Accessing local vault: //{typeof window !== 'undefined' ? window.location.host : 'sys'}/obsidian_core</p>
-            <div className="flex items-center justify-center gap-3 pt-2">
+            <div className="flex justify-center gap-8 mt-4 border-b border-white/10 w-full max-w-sm mx-auto">
+              <button 
+                className={`font-code-label text-sm uppercase tracking-widest pb-2 border-b-2 transition-colors cursor-pointer ${tab === "Search" ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}
+                onClick={() => setTab("Search")}
+              >Search</button>
+              <button 
+                className={`font-code-label text-sm uppercase tracking-widest pb-2 border-b-2 transition-colors cursor-pointer ${tab === "Sessions" ? "border-primary text-primary" : "border-transparent text-on-surface-variant hover:text-on-surface"}`}
+                onClick={() => setTab("Sessions")}
+              >Sessions</button>
+            </div>
+            <div className="flex items-center justify-center gap-3 pt-4">
               <button
                 className="flex items-center gap-2 px-3 py-1.5 bg-surface-container-lowest border border-white/10 rounded font-code-label text-[10px] uppercase tracking-widest text-on-surface-variant hover:text-primary hover:border-primary/30 transition-colors cursor-pointer disabled:opacity-50"
                 disabled={sync.isPending}
@@ -60,64 +73,111 @@ export function KnowledgeScreen() {
             </div>
           </div>
           
-          {/* Large Search Bar */}
-          <div className="relative group w-full">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary-fixed-dim to-secondary rounded-lg blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
-            <div className="relative flex items-center bg-surface-container-lowest border border-white/10 glow-border-primary px-4 md:px-6 py-3 md:py-5 rounded">
-              <span className="material-symbols-outlined text-primary-fixed-dim text-2xl md:text-3xl mr-2 md:mr-4">manage_search</span>
-              <input 
-                className="bg-transparent border-none text-headline-sm md:text-headline-md font-headline-sm md:font-headline-md w-full focus:ring-0 placeholder:text-outline/40 text-on-surface outline-none" 
-                placeholder="Search Obsidian Vault..." 
-                type="text"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") setSubmitted(q);
-                }}
-              />
-              <button 
-                className="bg-primary-fixed-dim text-on-primary font-code-label px-3 md:px-4 py-2 rounded-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-[0_0_15px_rgba(0,219,233,0.3)] ml-2 md:ml-4 text-xs md:text-sm"
-                onClick={() => setSubmitted(q)}
-              >
-                Scan
-              </button>
-            </div>
-          </div>
-
-          {sq.isLoading && <div className="text-center mt-12 text-primary-fixed-dim neon-pulse font-code-sm uppercase tracking-widest">Scanning vector space...</div>}
-
-          {/* Rich Knowledge Cards Grid */}
-          {sq.data && sq.data.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mt-12 w-full">
-              {sq.data.map((h, i) => (
-                <div 
-                  key={i} 
-                  className="glass-card group relative p-6 hover:shadow-[0_0_20px_rgba(0,219,233,0.1)] transition-all duration-300 overflow-hidden cursor-pointer rounded-lg"
-                  onClick={() => {
-                    if (h.sourceKind === "ticket") {
-                      nav({ to: "/tickets/$id", params: { id: h.sourceRef } });
-                    } else {
-                      setActiveSource({ kind: h.sourceKind, ref: h.sourceRef, citation: h.citation });
-                    }
-                  }}
-                >
-                  <div className="absolute top-0 right-0 p-2 opacity-30 group-hover:opacity-100 transition-opacity">
-                    <span className="material-symbols-outlined text-primary-fixed-dim text-sm">open_in_new</span>
-                  </div>
-                  <h3 className="font-headline-md text-headline-md text-primary mb-3 leading-tight">{h.citation}</h3>
-                  <p className="text-on-surface-variant text-sm line-clamp-4 mb-4 leading-relaxed font-body-md whitespace-pre-wrap">
-                    {h.content}
-                  </p>
-                  <div className="pt-4 border-t border-white/5 flex justify-between items-center text-outline">
-                    <span className="font-code-sm text-[10px] text-primary-fixed-dim/60">INDEX_MATCH</span>
-                    <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
-                  </div>
+          {tab === "Search" ? (
+            <>
+              {/* Large Search Bar */}
+              <div className="relative group w-full">
+                <div className="absolute -inset-1 bg-gradient-to-r from-primary-fixed-dim to-secondary rounded-lg blur opacity-20 group-focus-within:opacity-40 transition duration-500"></div>
+                <div className="relative flex items-center bg-surface-container-lowest border border-white/10 glow-border-primary px-4 md:px-6 py-3 md:py-5 rounded">
+                  <span className="material-symbols-outlined text-primary-fixed-dim text-2xl md:text-3xl mr-2 md:mr-4">manage_search</span>
+                  <input 
+                    className="bg-transparent border-none text-headline-sm md:text-headline-md font-headline-sm md:font-headline-md w-full focus:ring-0 placeholder:text-outline/40 text-on-surface outline-none" 
+                    placeholder="Search Obsidian Vault..." 
+                    type="text"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") setSubmitted(q);
+                    }}
+                  />
+                  <button 
+                    className="bg-primary-fixed-dim text-on-primary font-code-label px-3 md:px-4 py-2 rounded-sm uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all cursor-pointer shadow-[0_0_15px_rgba(0,219,233,0.3)] ml-2 md:ml-4 text-xs md:text-sm"
+                    onClick={() => setSubmitted(q)}
+                  >
+                    Scan
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {sq.isLoading && <div className="text-center mt-12 text-primary-fixed-dim neon-pulse font-code-sm uppercase tracking-widest">Scanning vector space...</div>}
+
+              {/* Rich Knowledge Cards Grid */}
+              {sq.data && sq.data.length > 0 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mt-12 w-full">
+                  {sq.data.map((h, i) => (
+                    <div 
+                      key={i} 
+                      className="glass-card group relative p-6 hover:shadow-[0_0_20px_rgba(0,219,233,0.1)] transition-all duration-300 overflow-hidden cursor-pointer rounded-lg"
+                      onClick={() => {
+                        if (h.sourceKind === "ticket") {
+                          nav({ to: "/tickets/$id", params: { id: h.sourceRef } });
+                        } else {
+                          setActiveSource({ kind: h.sourceKind, ref: h.sourceRef, citation: h.citation });
+                        }
+                      }}
+                    >
+                      <div className="absolute top-0 right-0 p-2 opacity-30 group-hover:opacity-100 transition-opacity">
+                        <span className="material-symbols-outlined text-primary-fixed-dim text-sm">open_in_new</span>
+                      </div>
+                      <h3 className="font-headline-md text-headline-md text-primary mb-3 leading-tight">{h.citation}</h3>
+                      <p className="text-on-surface-variant text-sm line-clamp-4 mb-4 leading-relaxed font-body-md whitespace-pre-wrap">
+                        {h.content}
+                      </p>
+                      <div className="pt-4 border-t border-white/5 flex justify-between items-center text-outline">
+                        <span className="font-code-sm text-[10px] text-primary-fixed-dim/60">INDEX_MATCH</span>
+                        <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>star</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {sq.data && sq.data.length === 0 && (
+                <div className="text-center mt-12 text-on-surface-variant font-code-sm uppercase tracking-widest opacity-50">0 matches found</div>
+              )}
+            </>
+          ) : (
+            <div className="w-full space-y-6 mt-12">
+              <div className="relative flex items-center bg-surface-container-lowest border border-white/10 px-4 py-3 rounded">
+                <span className="material-symbols-outlined text-outline text-xl mr-3">filter_list</span>
+                <input
+                  className="bg-transparent border-none text-body-lg w-full focus:ring-0 placeholder:text-outline/40 text-on-surface outline-none"
+                  placeholder="Filter by session ref..."
+                  value={sessionFilter}
+                  onChange={(e) => setSessionFilter(e.target.value)}
+                />
+              </div>
+              
+              {sessionsQuery.isPending && <div className="text-center mt-8 text-primary-fixed-dim neon-pulse font-code-sm uppercase tracking-widest">Loading sessions...</div>}
+              {sessionsQuery.isError && <div className="text-error bg-error/10 p-4 rounded text-center">Error loading sessions</div>}
+              
+              {sessionsQuery.data && (
+                <div className="flex flex-col gap-4 mt-8">
+                  {sessionsQuery.data.filter((s: { ref: string; chunkCount: number; created_at: string; excerpt: string; }) => s.ref.includes(sessionFilter)).map((s: { ref: string; chunkCount: number; created_at: string; excerpt: string; }, i: number) => (
+                    <div 
+                      key={i}
+                      className="glass-card p-4 hover:bg-white/5 transition-colors cursor-pointer rounded flex flex-col gap-2"
+                      onClick={() => setActiveSource({ kind: "session", ref: s.ref, citation: s.ref })}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-code-sm text-primary max-w-[60%] truncate" title={s.ref}>
+                          {s.ref.length > 40 ? s.ref.slice(0, 20) + "..." + s.ref.slice(-20) : s.ref}
+                        </span>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] uppercase font-code-sm text-on-surface-variant/70">{new Date(s.created_at).toLocaleString()}</span>
+                          <span className="bg-surface-container-highest text-on-surface text-[10px] px-2 py-0.5 rounded-full font-code-label">
+                            {s.chunkCount} {s.chunkCount === 1 ? "chunk" : "chunks"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-sm text-on-surface-variant/60 truncate" title={s.excerpt}>{s.excerpt}</div>
+                    </div>
+                  ))}
+                  {sessionsQuery.data.filter((s: { ref: string; chunkCount: number; created_at: string; excerpt: string; }) => s.ref.includes(sessionFilter)).length === 0 && (
+                    <div className="text-center mt-8 text-on-surface-variant font-code-sm uppercase tracking-widest opacity-50">No sessions match filter</div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-          {sq.data && sq.data.length === 0 && (
-            <div className="text-center mt-12 text-on-surface-variant font-code-sm uppercase tracking-widest opacity-50">0 matches found</div>
           )}
         </div>
 
