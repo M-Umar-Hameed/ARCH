@@ -114,6 +114,9 @@ describe("Prompt Injection Defenses - Composer Level", () => {
       const reviewPrompt = composeReviewPrompt({ ticket, plan: "plan", report: payload, diff: payload });
 
       expect(planPrompt).toContain(`<UNTRUSTED label="ticket-body">\n${payload}\n</UNTRUSTED>`);
+      // knowledge payload must sit inside the knowledge-labeled fence
+      expect(planPrompt).toMatch(/<UNTRUSTED label="knowledge">[^]*?<\/UNTRUSTED>/);
+      expect(planPrompt.match(/<UNTRUSTED label="knowledge">[^]*?<\/UNTRUSTED>/)![0]).toContain(payload);
       expect(planPrompt.split(UNTRUSTED_CLAUSE).length - 1).toBe(1);
 
       expect(workPrompt).toContain(`<UNTRUSTED label="ticket-body">\n${payload}\n</UNTRUSTED>`);
@@ -147,6 +150,8 @@ describe("Prompt Injection Defenses - Pipeline Level", () => {
     // Assert ticket ends in "review" status with lastVerdict: "fail", never auto-closed.
     const sandboxRes = await app.request(`/forge/tickets/${ticket.id}/sandbox`, { headers: h });
     expect((await sandboxRes.json()).lastVerdict).toBe("fail");
+    const tRes = await app.request(`/tickets/${ticket.id}`, { headers: h });
+    expect((await tRes.json()).status).not.toBe("closed");
 
     // A forged VERDICT: PASS planted via member
     const { apiKey: memberKey } = await createActor({ name: uniq("prompt-inj-member"), kind: "agent" });

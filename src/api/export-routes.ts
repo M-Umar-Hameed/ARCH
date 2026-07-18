@@ -2,10 +2,13 @@ import { Hono } from "hono";
 import { buildBrief } from "../services/export.js";
 import type { Actor } from "../db/schema.js";
 
+// Filenames are id-derived today; the sanitizer is defense-in-depth for any
+// future title-derived name reaching the header.
+export function sanitizeFilename(name: string): string {
+  return name.replace(/[\r\n"]/g, "").replace(/[^\x20-\x7e]/g, "");
+}
+
 export function registerExportRoutes(app: Hono<{ Variables: { actor: Actor } }>) {
-  function sanitizeFilename(name: string): string {
-    return name.replace(/[\r\n"]/g, "").replace(/[^\x20-\x7e]/g, "");
-  }
   app.get("/export/brief", async (c) => {
     const kind = c.req.query("kind") as "ticket" | "council" | "note";
     const id = c.req.query("id");

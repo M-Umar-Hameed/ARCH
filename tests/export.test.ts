@@ -7,6 +7,7 @@ import { startCouncil } from "../src/council/runs.js";
 import { randomUUID } from "node:crypto";
 import { createActor } from "../src/services/actors.js";
 import { createProject } from "../src/services/projects.js";
+import { sanitizeFilename } from "../src/api/export-routes.js";
 
 test("export brief ticket", async () => {
   const uniq = "exp-tkt-" + randomUUID().slice(0, 8);
@@ -68,7 +69,11 @@ test("export brief routes", async () => {
   expect(text).toContain(`body ${uniq}`);
 });
 
-test("export brief filename sanitization", async () => {
+// Filenames are id-derived today, so no attacker-controlled text reaches the
+// header; this pins the defense-in-depth sanitizer itself plus the header shape.
+test("export brief filename sanitization (defense-in-depth)", async () => {
+  expect(sanitizeFilename(`evil"
+name😀.md`)).toBe("evilname.md");
   const uniq = "exp-san-" + randomUUID().slice(0, 8);
   const { actor, apiKey } = await createActor({ name: uniq, kind: "human", role: "member" });
   const [note] = await db.insert(notes).values({
