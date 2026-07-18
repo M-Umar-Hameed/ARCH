@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api } from "../lib/api.js";
+import { useProject } from "../context/project.js";
 
 type Ticket = { id: string; title: string; status: string };
 type Agent = { name: string; roles: string[]; models?: { name: string }[] };
@@ -8,6 +9,7 @@ type SandboxStatus = { exists: boolean; branch?: string; lastVerdict?: string };
 type Diff = { diff: string };
 
 export function ForgeScreen() {
+  const { activeProjectId } = useProject();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [sandboxes, setSandboxes] = useState<Record<string, SandboxStatus>>({});
   const [ticketsError, setTicketsError] = useState("");
@@ -70,7 +72,7 @@ export function ForgeScreen() {
 
   const loadTickets = async () => {
     try {
-      const t = await api.get("/tickets") as Ticket[];
+      const t = await api.get(activeProjectId ? `/tickets?projectId=${encodeURIComponent(activeProjectId)}` : "/tickets") as Ticket[];
       setTickets(t);
       const reviewIds = t.filter(x => x.status === "review").map(x => x.id);
       const sMap: Record<string, SandboxStatus> = {};
@@ -87,7 +89,6 @@ export function ForgeScreen() {
   };
 
   useEffect(() => {
-    loadTickets();
     api.get("/forge/agents")
        .then(a => {
          const ags = a as Agent[];
@@ -97,6 +98,10 @@ export function ForgeScreen() {
        
     api.get("/forge/skills").then(s => setSkills(s as Skill[])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    loadTickets();
+  }, [activeProjectId]);
 
   const loadSandbox = async (ticketId: string) => {
     setSandboxError("");

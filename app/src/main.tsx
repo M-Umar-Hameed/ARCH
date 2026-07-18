@@ -58,10 +58,14 @@ declare module "@tanstack/react-router" {
   }
 }
 
+import { ProjectProvider } from "./context/project.js";
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ProjectProvider>
+        <RouterProvider router={router} />
+      </ProjectProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );

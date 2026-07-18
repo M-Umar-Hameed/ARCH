@@ -7,17 +7,22 @@ import { actors } from "../api/actors.js";
 import { system } from "../api/system.js";
 import { Avatar } from "../components/Avatar.js";
 import { StatusBadge } from "../components/StatusBadge.js";
+import { useProject } from "../context/project.js";
 
 export function ListScreen() {
+  const { activeProjectId } = useProject();
   const [projectId, setProjectId] = useState<string>("");
   const [status, setStatus] = useState<string>("");
   const [q, setQ] = useState("");
   
   const projQ = useQuery({ queryKey: ["projects"], queryFn: projects.list });
   const actQ = useQuery({ queryKey: ["actors"], queryFn: actors.list });
+  
+  const effectiveProjectId = activeProjectId ?? (projectId || undefined);
+  
   const listQ = useQuery({
-    queryKey: ["tickets", { projectId, status, q }],
-    queryFn: () => q ? tickets.search(q) : tickets.list({ projectId: projectId || undefined, status: status || undefined }),
+    queryKey: ["tickets", { activeProjectId, projectId, status, q }],
+    queryFn: () => q ? tickets.search(q) : tickets.list({ projectId: effectiveProjectId, status: status || undefined }),
   });
   
   const actorName = (id: string | null) => actQ.data?.find((a) => a.id === id)?.name ?? "Unassigned";
@@ -31,7 +36,12 @@ export function ListScreen() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
         <div className="relative w-full sm:w-auto">
-          <select className="w-full bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 pr-8 text-xs text-on-surface appearance-none outline-none cursor-pointer focus:border-primary-fixed-dim" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+          <select 
+            className="w-full bg-surface-container-highest border border-white/10 rounded px-3 py-1.5 pr-8 text-xs text-on-surface appearance-none outline-none cursor-pointer focus:border-primary-fixed-dim disabled:opacity-50 disabled:cursor-not-allowed" 
+            value={activeProjectId ?? projectId} 
+            onChange={(e) => setProjectId(e.target.value)}
+            disabled={!!activeProjectId}
+          >
             <option value="">All Projects</option>
             {projQ.data?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
