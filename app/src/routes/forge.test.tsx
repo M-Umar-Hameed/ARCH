@@ -5,6 +5,7 @@ const apiFetch = vi.fn();
 vi.mock("../api/client.js", () => ({ apiFetch: (...a: any[]) => apiFetch(...a) }));
 
 import { ForgeScreen } from "./forge.js";
+import { NotFoundError } from "../api/errors.js";
 import { ProjectProvider } from "../context/project.js";
 
 beforeEach(() => {
@@ -226,7 +227,7 @@ test("shows empty-state when diff 404s", async () => {
     if (path === "/forge/agents") return [];
     if (path === "/forge/skills") return [];
     if (path.includes("/sandbox")) return { exists: true, branch: "forge/t1", lastVerdict: "none" };
-    if (path.includes("/diff")) throw new Error("404 no sandbox");
+    if (path.includes("/diff")) throw new NotFoundError("no sandbox");
     return {};
   });
 
