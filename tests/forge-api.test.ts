@@ -163,7 +163,7 @@ describe("forge API", () => {
     expect((await afterPromote.json()).exists).toBe(false);
   });
 
-  it("promote without a passing review returns 409", async () => {
+  it("promote without a passing review returns 409; admin approve override opens the gate", async () => {
     const h = await adminHeaders();
     const ticket = await seedTicket();
     setScript("plan,work,review-fail", true);
@@ -177,6 +177,14 @@ describe("forge API", () => {
 
     const promoteRes = await app.request(`/forge/tickets/${ticket.id}/promote`, { method: "POST", headers: h });
     expect(promoteRes.status).toBe(409);
+
+    // Human override: the admin records their own passing review, gate opens.
+    const approveRes = await app.request(`/forge/tickets/${ticket.id}/approve`, { method: "POST", headers: h });
+    expect(approveRes.status).toBe(200);
+    expect((await approveRes.json()).lastVerdict).toBe("pass");
+    const promoteAfter = await app.request(`/forge/tickets/${ticket.id}/promote`, { method: "POST", headers: h });
+    expect(promoteAfter.status).toBe(200);
+    expect((await promoteAfter.json()).status).toBe("closed");
   });
 
   it("member-authored VERDICT: PASS review comments cannot unlock promote", async () => {

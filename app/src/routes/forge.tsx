@@ -123,6 +123,7 @@ export function ForgeScreen() {
       setIsSubmitting(false);
       nextOffsetRef.current = 0;
       setViewDiff(false);
+      setConfirmApprove(false); // never carry an armed confirm across tickets
     }
   }, [selectedTicket]);
 
@@ -217,6 +218,19 @@ export function ForgeScreen() {
       await loadSandbox(selectedTicket.id);
     } catch (e: any) {
       setSandboxError(e.message || "Failed to promote");
+    }
+  };
+
+  const [confirmApprove, setConfirmApprove] = useState(false);
+  const handleApprove = async () => {
+    if (!selectedTicket) return;
+    if (!confirmApprove) { setConfirmApprove(true); return; }
+    setConfirmApprove(false);
+    try {
+      await api.post(`/forge/tickets/${selectedTicket.id}/approve`);
+      await loadSandbox(selectedTicket.id);
+    } catch (e: any) {
+      setSandboxError(e.message || "Failed to approve");
     }
   };
 
@@ -459,10 +473,19 @@ export function ForgeScreen() {
                     <button
                       onClick={handlePromote}
                       disabled={sandbox.lastVerdict !== "pass"}
+                      title={sandbox.lastVerdict !== "pass" ? "Needs a passing review — inspect the diff, then use Approve override" : undefined}
                       className="px-4 py-2 rounded bg-green-500/20 hover:bg-green-500/40 text-green-400 text-sm font-bold uppercase transition-all disabled:opacity-50 cursor-pointer"
                     >
                       Promote
                     </button>
+                    {sandbox.lastVerdict !== "pass" && (
+                      <button
+                        onClick={handleApprove}
+                        className="px-4 py-2 rounded bg-amber-500/20 hover:bg-amber-500/40 text-amber-400 text-sm font-bold uppercase transition-all cursor-pointer"
+                      >
+                        {confirmApprove ? "Confirm approve?" : "Approve override"}
+                      </button>
+                    )}
                     <button
                       onClick={handleDiscard}
                       className="px-4 py-2 rounded bg-error/20 hover:bg-error/40 text-error text-sm font-bold uppercase transition-all cursor-pointer"
@@ -470,6 +493,11 @@ export function ForgeScreen() {
                       Discard
                     </button>
                   </div>
+                  {sandbox.lastVerdict !== "pass" && (
+                    <div className="text-xs text-on-surface-variant">
+                      Promote unlocks after a passing review. Approve override records YOUR passing review on the ticket, then Promote merges.
+                    </div>
+                  )}
 
                   {viewDiff && diff && (
                     <pre className="p-4 bg-background/80 text-code-sm text-on-surface font-mono whitespace-pre-wrap border border-white/10 rounded-lg overflow-x-auto">

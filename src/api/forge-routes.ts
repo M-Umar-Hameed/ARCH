@@ -125,6 +125,19 @@ export function registerForgeRoutes(app: Hono<AppEnv>): void {
     return c.json({ diff });
   });
 
+  // Human override for a wrong or missing model verdict: the calling ADMIN
+  // records their own passing review, which is exactly what the promote gate
+  // trusts. Deliberate that this is a human action in the UI, not automation.
+  app.post("/forge/tickets/:id/approve", requireAdmin, async (c) => {
+    const ticketId = c.req.param("id");
+    if (!sandboxExists(ticketId)) return c.json({ error: "no sandbox for ticket" }, 404);
+    const actor = c.get("actor");
+    await addComment(actor.id, ticketId,
+      `Override approval by ${actor.name} after manual inspection of the sandbox diff.\n\nVERDICT: PASS`,
+      "review");
+    return c.json({ lastVerdict: await lastVerdict(ticketId) });
+  });
+
   app.post("/forge/tickets/:id/promote", requireAdmin, async (c) => {
     const ticketId = c.req.param("id");
     const verdict = await lastVerdict(ticketId);
