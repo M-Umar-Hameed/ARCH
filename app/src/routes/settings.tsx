@@ -9,7 +9,9 @@ import { PluginsTab } from "../components/settings/PluginsTab.js";
 type TabId = "node" | "integrations" | "ai" | "mcp" | "plugins";
 
 export function SettingsScreen() {
-  const initTab = (new URLSearchParams(window.location.search).get("tab") as TabId) || "integrations";
+  const rawTab = new URLSearchParams(window.location.search).get("tab");
+  const TAB_IDS: TabId[] = ["node", "integrations", "ai", "mcp", "plugins"];
+  const initTab: TabId = TAB_IDS.includes(rawTab as TabId) ? (rawTab as TabId) : "integrations";
   const [activeTab, setActiveTab] = useState<TabId>(initTab);
   const [rejected] = useState(isAuthRejected);
 
