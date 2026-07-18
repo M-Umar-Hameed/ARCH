@@ -5,6 +5,7 @@ const apiFetch = vi.fn();
 vi.mock("../api/client.js", () => ({ apiFetch: (...a: any[]) => apiFetch(...a) }));
 
 import { ForgeScreen } from "./forge.js";
+import { ProjectProvider } from "../context/project.js";
 
 beforeEach(() => {
   apiFetch.mockReset();
@@ -29,7 +30,7 @@ test("renders agent dropdowns from /forge/agents data", async () => {
     return {};
   });
 
-  render(<ForgeScreen />);
+  render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
   await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
   
   fireEvent.click(screen.getByText("My Ticket"));
@@ -59,7 +60,7 @@ test("Run pipeline posts the selected agents and ticketId", async () => {
     return {};
   });
 
-  render(<ForgeScreen />);
+  render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
   await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
   fireEvent.click(screen.getByText("My Ticket"));
   
@@ -96,7 +97,7 @@ test("Run pipeline posts untouched defaults without model keys", async () => {
     return {};
   });
 
-  render(<ForgeScreen />);
+  render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
   await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
   fireEvent.click(screen.getByText("My Ticket"));
   
@@ -118,7 +119,7 @@ test("Promote button disabled when lastVerdict is not pass and enabled when it i
     return {};
   });
 
-  const { unmount } = render(<ForgeScreen />);
+  const { unmount } = render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
   await waitFor(() => expect(screen.getByText("Review Ticket")).toBeInTheDocument());
   fireEvent.click(screen.getByText("Review Ticket"));
   
@@ -137,7 +138,7 @@ test("Promote button disabled when lastVerdict is not pass and enabled when it i
     return {};
   });
 
-  render(<ForgeScreen />);
+  render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
   await waitFor(() => expect(screen.getByText("Review Ticket")).toBeInTheDocument());
   fireEvent.click(screen.getByText("Review Ticket"));
   
@@ -167,7 +168,7 @@ test("console appends polled chunks (mock two successive output responses, use f
     return {};
   });
 
-  render(<ForgeScreen />);
+  render(<ProjectProvider><ForgeScreen /></ProjectProvider>);
   await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
   fireEvent.click(screen.getByText("My Ticket"));
   

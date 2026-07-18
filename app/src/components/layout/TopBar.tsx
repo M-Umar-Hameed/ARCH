@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { tickets } from "../../api/tickets.js";
 import { StatusBadge } from "../StatusBadge.js";
+import { useProject } from "../../context/project.js";
 
 export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -12,6 +13,8 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   const [debouncedQ, setDebouncedQ] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const { projects, activeProjectId } = useProject();
+  const activeProject = projects.find(p => p.id === activeProjectId);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedQ(q), 300);
@@ -64,6 +67,12 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
         >
           menu
         </button>
+        {activeProject && (
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-surface-container/50 border border-white/10 rounded-full text-on-surface-variant font-code-sm text-xs">
+            <span className="material-symbols-outlined text-[14px]">folder</span>
+            <span className="truncate max-w-[150px]">{activeProject.name}</span>
+          </div>
+        )}
         <div className="hidden sm:flex items-center gap-4 bg-surface-container-low px-4 py-1.5 rounded-lg border border-white/5 focus-within:ring-1 focus-within:ring-primary-container transition-all">
           <span className="material-symbols-outlined text-on-surface-variant text-sm">search</span>
           <input 

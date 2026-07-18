@@ -6,10 +6,12 @@ import { actors } from "../api/actors.js";
 import { tickets } from "../api/tickets.js";
 import { Avatar } from "../components/Avatar.js";
 import { api } from "../lib/api.js";
+import { useProject } from "../context/project.js";
 
 export function CreateScreen() {
   const qc = useQueryClient();
   const nav = useNavigate();
+  const { activeProjectId } = useProject();
   const [mode, setMode] = useState<"council" | "quick">("council");
   const pq = useQuery({ queryKey: ["projects"], queryFn: projects.list });
   const aq = useQuery({ queryKey: ["actors"], queryFn: actors.list });
@@ -23,6 +25,10 @@ export function CreateScreen() {
     mutationFn: () => tickets.create({ projectId, title, body, priority, assigneeId: assigneeId || undefined }),
     onSuccess: (t) => { qc.invalidateQueries({ queryKey: ["tickets"] }); nav({ to: "/tickets/$id", params: { id: t.id } }); },
   });
+
+  useEffect(() => {
+    if (activeProjectId) setProjectId(activeProjectId);
+  }, [activeProjectId]);
 
   return (
     <div className="w-full max-w-3xl mx-auto mt-8">
@@ -43,7 +49,7 @@ export function CreateScreen() {
         </button>
       </div>
 
-      {mode === "council" && <CouncilPanel projects={pq.data ?? []} nav={nav} />}
+      {mode === "council" && <CouncilPanel projects={pq.data ?? []} activeProjectId={activeProjectId} nav={nav} />}
 
       {mode === "quick" && (
         <div className="glass-card rounded-lg p-8 relative overflow-hidden">
@@ -83,9 +89,10 @@ export function CreateScreen() {
             </label>
             <div className="relative">
               <select 
-                className="w-full bg-surface-container-lowest border border-white/5 focus:border-primary-fixed-dim focus:ring-1 focus:ring-primary-fixed-dim/20 px-4 py-4 font-code-label text-on-surface rounded-sm appearance-none outline-none cursor-pointer"
+                className="w-full bg-surface-container-lowest border border-white/5 focus:border-primary-fixed-dim focus:ring-1 focus:ring-primary-fixed-dim/20 px-4 py-4 font-code-label text-on-surface rounded-sm appearance-none outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 value={projectId}
                 onChange={(e) => setProjectId(e.target.value)}
+                disabled={!!activeProjectId}
                 required
               >
                 <option className="bg-surface text-on-surface-variant" value="">Select target namespace</option>
@@ -194,9 +201,13 @@ type Project = { id: string; name: string };
 type CouncilStatus = "idle" | "running" | "awaiting-answers" | "decided" | "consumed" | "failed";
 type Decision = "GO" | "NO-GO" | "NEEDS-INFO";
 
-function CouncilPanel({ projects, nav }: { projects: Project[]; nav: ReturnType<typeof useNavigate> }) {
+function CouncilPanel({ projects, activeProjectId, nav }: { projects: Project[]; activeProjectId: string | null; nav: ReturnType<typeof useNavigate> }) {
   const [ideaPrompt, setIdeaPrompt] = useState("");
   const [councilProjectId, setCouncilProjectId] = useState("");
+
+  useEffect(() => {
+    if (activeProjectId) setCouncilProjectId(activeProjectId);
+  }, [activeProjectId]);
   const [councilId, setCouncilId] = useState<string | null>(null);
   const [councilStatus, setCouncilStatus] = useState<CouncilStatus>("idle");
   const [councilOutput, setCouncilOutput] = useState("");
@@ -359,9 +370,10 @@ function CouncilPanel({ projects, nav }: { projects: Project[]; nav: ReturnType<
           <div className="space-y-2">
             <label className="font-code-sm text-on-surface-variant uppercase tracking-widest">Project</label>
             <select
-              className="w-full bg-surface-container-lowest border border-white/5 px-4 py-4 font-code-label text-on-surface rounded-sm outline-none cursor-pointer"
+              className="w-full bg-surface-container-lowest border border-white/5 px-4 py-4 font-code-label text-on-surface rounded-sm outline-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               value={councilProjectId}
               onChange={(e) => setCouncilProjectId(e.target.value)}
+              disabled={!!activeProjectId}
             >
               <option value="">Select target namespace</option>
               {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
