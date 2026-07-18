@@ -85,7 +85,10 @@ name😀.md`)).toBe("evilname.md");
   });
   expect(res.status).toBe(200);
   const disposition = res.headers.get("Content-Disposition") || "";
-  expect(disposition).not.toContain('"');
+  // The header legitimately wraps the filename in quotes; judge the VALUE.
+  const fname = /filename="([^"]*)"/.exec(disposition)?.[1] ?? "";
+  expect(fname.length).toBeGreaterThan(0);
+  expect(fname).not.toContain('"');
   expect(disposition).not.toContain('\r');
   expect(disposition).not.toContain('\n');
   expect(disposition).not.toContain('😀');

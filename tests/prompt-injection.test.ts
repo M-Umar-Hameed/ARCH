@@ -114,9 +114,11 @@ describe("Prompt Injection Defenses - Composer Level", () => {
       const reviewPrompt = composeReviewPrompt({ ticket, plan: "plan", report: payload, diff: payload });
 
       expect(planPrompt).toContain(`<UNTRUSTED label="ticket-body">\n${payload}\n</UNTRUSTED>`);
-      // knowledge payload must sit inside the knowledge-labeled fence
-      expect(planPrompt).toMatch(/<UNTRUSTED label="knowledge">[^]*?<\/UNTRUSTED>/);
-      expect(planPrompt.match(/<UNTRUSTED label="knowledge">[^]*?<\/UNTRUSTED>/)![0]).toContain(payload);
+      // knowledge payload must sit inside the knowledge-labeled fence; no
+      // regex — a fence-escape payload embeds </UNTRUSTED> and truncates any
+      // non-greedy match.
+      expect(planPrompt).toContain('<UNTRUSTED label="knowledge">');
+      expect(planPrompt.indexOf(payload, planPrompt.indexOf('<UNTRUSTED label="knowledge">'))).toBeGreaterThan(-1);
       expect(planPrompt.split(UNTRUSTED_CLAUSE).length - 1).toBe(1);
 
       expect(workPrompt).toContain(`<UNTRUSTED label="ticket-body">\n${payload}\n</UNTRUSTED>`);
