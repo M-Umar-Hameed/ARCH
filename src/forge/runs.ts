@@ -22,6 +22,7 @@ import { logAgentUse, startAgentSession, endAgentSession } from "../services/usa
 import { desc, isNull, sum, eq, gte, and } from "drizzle-orm";
 import { db } from "../db/client.js";
 import { forgeRuns, aiUsageLogs } from "../db/schema.js";
+import { verifyModel, MISMATCH_WARNING, computeVerificationStatus } from "./verify.js";
 
 const OUTPUT_CAP = 400_000;
 const MAX_ACTIVE = 3;
@@ -112,6 +113,28 @@ function getAgent(config: RelayConfig, name: string, role: Stage): RelayAgent {
 // composite is what's stored in run.agents / forge_runs (no schema change).
 function composite(pick: Pick): string {
   return pick.model ? `${pick.agent}:${pick.model}` : pick.agent;
+}
+
+function applyVerification(res: { ok: boolean; output: string }, compositeName: string, run: Run, config: RelayConfig): void {
+  const [agentName, requestedModel] = compositeName.split(":");
+  // Match on the actual BINARY, not the relay.json key — users key agents
+  // freely ("fable", "agy-gemini"), the CLI's output format follows the exe.
+  const cmd = config.agents[agentName]?.cmd ?? [agentName];
+  const strip = (p0: string) => (p0.replace(/\\/g, "/").split("/").pop() ?? p0).replace(/\.(exe|cmd|bat|mjs|cjs|js|py)$/i, "");
+  // Generic interpreters carry no identity — the script they run does.
+  const INTERPRETERS = new Set(["node", "python", "python3", "deno", "bun"]);
+  const first = strip(cmd[0]);
+  const binary = INTERPRETERS.has(first.toLowerCase()) && cmd[1] ? strip(cmd[1]) : first;
+  const status = verifyModel(binary, requestedModel, res.output);
+  if (status !== "unknown") {
+    const marker = `\n\n[forge: verification=${status}]`;
+    res.output += marker;
+    append(run, marker);
+    if (status === "mismatch") {
+      res.output += `\n${MISMATCH_WARNING}`;
+      append(run, `\n${MISMATCH_WARNING}`);
+    }
+  }
 }
 
 async function countFailedReviews(ticketId: string): Promise<number> {
@@ -238,6 +261,7 @@ async function pipeline(
     ));
     run.child = undefined;
     if (run.stopped) return settle(run, "stopped");
+    applyVerification(res, run.agents.plan, run, config);
     if (!res.ok) { await bounce(run, actorId, "planner failed", res.output); return settle(run, "failed"); }
     // Comments are the DURABLE record — redact them too, not just the console.
     await addComment(actorId, ticket.id, redactSecrets(res.output), "plan");
@@ -264,6 +288,7 @@ async function pipeline(
     runAgent(agents.work, workPrompt, sandbox, onData, (child) => { run.child = child; }));
   run.child = undefined;
   if (run.stopped) { await bounce(run, actorId, "run stopped", ""); return settle(run, "stopped"); }
+  applyVerification(workRes, run.agents.work, run, config);
   if (!workRes.ok) { await bounce(run, actorId, "worker failed", workRes.output); return settle(run, "failed"); }
   await forgeCommit(ticket.id, ticket.title);
   await addComment(actorId, ticket.id, redactSecrets(workRes.output), "report");
@@ -282,6 +307,7 @@ async function pipeline(
   ));
   run.child = undefined;
   if (run.stopped) return settle(run, "stopped");
+  applyVerification(reviewRes, run.agents.review, run, config);
   const verdict = parseVerdict(reviewRes.output);
   await addComment(actorId, ticket.id, redactSecrets(verdict.raw), "review");
   if (!verdict.pass) {
@@ -412,7 +438,7 @@ export async function hasActiveRun(ticketId: string): Promise<boolean> {
   return !!row;
 }
 
-export type RunListItem = RunSummary & { persisted?: boolean };
+export type RunListItem = RunSummary & { persisted?: boolean; modelVerified?: boolean | "unknown" };
 
 const HISTORY_LIMIT = 20;
 const LIST_CAP = 40;
@@ -432,9 +458,19 @@ export async function listRunsWithHistory(): Promise<RunListItem[]> {
       finishedAt: r.finishedAt ? r.finishedAt.toISOString() : undefined,
       persisted: true,
     }));
-  return [...live, ...persisted]
+  const list: RunListItem[] = [...live, ...persisted]
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     .slice(0, LIST_CAP);
+
+  const verificationPromises = list.map(async (item) => {
+    item.modelVerified = await computeVerificationStatus(item.ticketId, {
+      from: new Date(item.startedAt),
+      to: item.finishedAt ? new Date(item.finishedAt) : null,
+    });
+  });
+  await Promise.all(verificationPromises);
+
+  return list;
 }
 
 export function getRunOutput(id: string, after: number) {
