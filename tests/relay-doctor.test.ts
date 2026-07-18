@@ -50,12 +50,18 @@ test("runDoctor: caches results; fresh=true bypasses the cache", async () => {
   const first = await runDoctor(config);
   expect(first[0].probe.ok).toBe(true);
 
-  // Simulate a rename: same agent name, binary now missing. Cached (non-fresh)
-  // read must still report the OLD ok:true result.
+  // Same name+binary within TTL: served from cache (same ok result).
+  const again = await runDoctor(config);
+  expect(again[0].probe.ok).toBe(true);
+
+  // Rename: same agent name, different binary. Cache is keyed by name+binary,
+  // so this is a MISS and probes the new (missing) binary immediately — a
+  // stale probe for the old cmd must never answer for the new one.
   const missingPath = join(mkdtempSync(join(tmpdir(), "doctor-renamed-")), "gone.cmd");
   const renamed: RelayConfig = { workdir: tmpdir(), agents: { [name]: { cmd: [missingPath], roles: ["plan", "work", "review"] } } };
   const cached = await runDoctor(renamed);
-  expect(cached[0].probe.ok).toBe(true);
+  expect(cached[0].probe.ok).toBe(false);
+  expect(cached[0].probe.spawnFailed).toBe(true);
 
   const fresh = await runDoctor(renamed, { fresh: true });
   expect(fresh[0].probe.ok).toBe(false);
@@ -82,23 +88,25 @@ test("pipelineStartWarnings/pipelineStartBlockingError read the cache only, neve
   const missingName = uniq("missing-for-pipeline");
   const missingPath = join(mkdtempSync(join(tmpdir(), "doctor-pipeline-missing-")), "gone.cmd");
 
-  await runDoctor({
+  const cfg = {
     workdir: tmpdir(),
     agents: {
       [okName]: { cmd: [EXIT0], roles: ["plan"] },
       [flakyName]: { cmd: [EXIT1], roles: ["plan"] },
       [missingName]: { cmd: [missingPath], roles: ["plan"] },
+      "never-checked-agent": { cmd: [EXIT0], roles: ["plan"] },
     },
-  });
+  };
+  await runDoctor({ ...cfg, agents: { [okName]: cfg.agents[okName], [flakyName]: cfg.agents[flakyName], [missingName]: cfg.agents[missingName] } });
 
-  expect(pipelineStartWarnings([okName])).toEqual([]);
-  expect(pipelineStartWarnings([flakyName])[0]).toContain(flakyName);
-  expect(pipelineStartWarnings([missingName])[0]).toContain(missingName);
+  expect(pipelineStartWarnings(cfg, [okName])).toEqual([]);
+  expect(pipelineStartWarnings(cfg, [flakyName])[0]).toContain(flakyName);
+  expect(pipelineStartWarnings(cfg, [missingName])[0]).toContain(missingName);
 
-  expect(pipelineStartBlockingError([okName])).toBeNull();
-  expect(pipelineStartBlockingError([flakyName])).toBeNull(); // soft failure never blocks
-  expect(pipelineStartBlockingError([missingName])).toContain(missingName);
+  expect(pipelineStartBlockingError(cfg, [okName])).toBeNull();
+  expect(pipelineStartBlockingError(cfg, [flakyName])).toBeNull(); // soft failure never blocks
+  expect(pipelineStartBlockingError(cfg, [missingName])).toContain(missingName);
 
-  expect(pipelineStartWarnings(["never-checked-agent"])).toEqual([]);
-  expect(pipelineStartBlockingError(["never-checked-agent"])).toBeNull();
+  expect(pipelineStartWarnings(cfg, ["never-checked-agent"])).toEqual([]);
+  expect(pipelineStartBlockingError(cfg, ["never-checked-agent"])).toBeNull();
 });

@@ -382,30 +382,34 @@ it("startPipeline returns doctorWarnings: [] when no doctor issue is cached", as
   await awaitRun(runId);
 });
 
-it("startPipeline attaches a non-blocking warning when the cached probe soft-failed", async () => {
-  const { actorId, ticket } = await seedTicket("Doctor soft failure");
+it("startPipeline ignores stale probes for a different binary under the same agent name", async () => {
+  const { actorId, ticket } = await seedTicket("Doctor stale probe");
   const config = relayConfig();
-  // Cache a soft failure directly (probe ran, exited non-zero) without
-  // touching the real fixture agent's spawnability.
+  // Cache failures under the same agent NAME but different binaries. The
+  // cache is keyed by name+binary, so neither may warn about or block the
+  // healthy agent as currently configured (live poisoning incident).
   const badConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [join(__dirname, "fixtures", "doctor-exit1.cmd")] } } };
   await runDoctor(badConfig, { fresh: true });
+  const missingPath = join(mkdtempSync(join(tmpdir(), "doctor-runs-missing-")), "gone-binary");
+  const brokenConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [missingPath] } } };
+  await runDoctor(brokenConfig, { fresh: true });
 
   setScript("plan,work,review-pass", true);
   const { runId, doctorWarnings } = await startPipeline(actorId, config, {
     ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
   });
-  expect(doctorWarnings.some((w: string) => w.includes("fake"))).toBe(true);
-  await awaitRun(runId); // run still proceeds -- warning is non-blocking
+  expect(doctorWarnings).toEqual([]);
+  await awaitRun(runId);
 });
 
-it("startPipeline throws (400 upstream) when the cached probe is a spawn-level failure", async () => {
+it("startPipeline throws (400 upstream) when the configured binary's probe is a spawn-level failure", async () => {
   const { actorId, ticket } = await seedTicket("Doctor hard failure");
   const config = relayConfig();
   const missingPath = join(mkdtempSync(join(tmpdir(), "doctor-runs-missing-")), "gone-binary");
   const brokenConfig = { workdir: config.workdir, agents: { fake: { ...config.agents.fake, cmd: [missingPath] } } };
   await runDoctor(brokenConfig, { fresh: true });
 
-  await expect(startPipeline(actorId, config, {
+  await expect(startPipeline(actorId, brokenConfig, {
     ticketId: ticket.id, planAgent: "fake", workAgent: "fake", reviewAgent: "fake",
   })).rejects.toThrow(/cannot be spawned/);
 });

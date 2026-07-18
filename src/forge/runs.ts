@@ -172,9 +172,9 @@ export async function startPipeline(
   // fails fast here instead of stalling silently mid-pipeline; a soft failure
   // (binary ran, exited non-zero -- e.g. auth expired) is only a warning.
   const chosenAgentNames = [planPick.agent, workPick.agent, reviewPick.agent];
-  const blocking = pipelineStartBlockingError(chosenAgentNames);
+  const blocking = pipelineStartBlockingError(config, chosenAgentNames);
   if (blocking) throw new Error(blocking);
-  const doctorWarnings = pipelineStartWarnings(chosenAgentNames);
+  const doctorWarnings = pipelineStartWarnings(config, chosenAgentNames);
 
   const agents = {
     plan: { ...getAgent(config, planPick.agent, "plan") },
