@@ -16,7 +16,7 @@ export function makeGitLabConnector(fetchImpl: typeof fetch = fetch): SourceConn
       pages++;
       const nextPage = res.headers.get("X-Next-Page");
       if (nextPage) {
-        const url = new URL(currentUrl);
+        const url: URL = new URL(currentUrl);
         url.searchParams.set("page", nextPage);
         currentUrl = url.toString();
       } else {
