@@ -18,7 +18,7 @@ export function IntegrationsTab() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
           <div className="glass-card rounded-xl overflow-hidden border border-white/10 flex flex-col group hover:border-primary/30 transition-all duration-300">
             <div className="p-6 border-b border-white/5 bg-surface-container/30 flex items-center gap-4">
               <div className="w-10 h-10 bg-primary/20 rounded-full flex items-center justify-center">
@@ -99,7 +99,7 @@ export function IntegrationsTab() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-5xl">
         <WorkspacesCard />
         <ObsidianIntegrationCard />
 
