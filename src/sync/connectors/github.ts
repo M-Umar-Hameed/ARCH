@@ -2,21 +2,21 @@ import { getSetting } from "../../services/settings.js";
 import type { SourceConnector, ExternalTicket, ExternalComment } from "../connector.js";
 
 export function makeGithubConnector(fetchImpl: typeof fetch = fetch, bindingOverride?: string): SourceConnector {
-  async function paginatedGet(urlStr: string, headers: Record<string, string>): Promise<any[]> {
-    const results: any[] = [];
+  async function paginatedGet(urlStr: string, headers: Record<string, string>): Promise<unknown[]> {
+    const results: unknown[] = [];
     let currentUrl: string | null = urlStr;
     let pages = 0;
     while (currentUrl && pages < 10) {
-      const res: any = await fetchImpl(currentUrl, { headers });
+      const res = await fetchImpl(currentUrl, { headers });
       if (!res.ok) {
         throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
       }
-      const data: any = await res.json();
+      const data = (await res.json()) as unknown[];
       results.push(...data);
       pages++;
-      const link: any = res.headers?.get?.("Link") || res.headers?.get?.("link");
-      const next: any = link ? link.split(",").find((p: string) => p.includes('rel="next"')) : undefined;
-      const match: any = next ? next.match(/<([^>]+)>/) : null;
+      const link = res.headers.get("Link") ?? res.headers.get("link");
+      const next = link ? link.split(",").find((p) => p.includes('rel="next"')) : undefined;
+      const match = next ? next.match(/<([^>]+)>/) : null;
       currentUrl = match ? match[1] : null;
     }
     return results;
