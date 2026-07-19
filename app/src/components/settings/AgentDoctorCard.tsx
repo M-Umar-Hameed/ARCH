@@ -8,6 +8,27 @@ type DoctorStatus = {
   lastChecked: string;
 };
 
+const CONNECT_COPY: Record<string, { label: string; command?: string; note: string }> = {
+  claude: {
+    label: "Claude Code",
+    command: "claude login",
+    note: "Signs in with your claude.ai account/subscription. Run this once in a terminal on this machine.",
+  },
+  codex: {
+    label: "Codex",
+    command: "codex login",
+    note: "Signs in with your ChatGPT/OpenAI account. Run this once in a terminal on this machine.",
+  },
+  agy: {
+    label: "Antigravity",
+    note: "Sign in through the Antigravity CLI/app's own sign-in flow (no single flag — see Antigravity's docs). VibeOps only invokes agy once it's authenticated.",
+  },
+};
+
+const GENERIC_CONNECT = {
+  note: "Authenticate this CLI in your terminal the way its provider expects. VibeOps only invokes the binary — it never sees or stores the credentials.",
+};
+
 function dotColor(s: DoctorStatus): string {
   return s.probe.ok ? "bg-green-500" : "bg-red-500";
 }
@@ -38,10 +59,11 @@ export function AgentDoctorCard() {
         <div>
           <h3 className="font-headline-sm text-on-surface font-bold flex items-center gap-2">
             <span className="material-symbols-outlined text-primary text-xl">monitor_heart</span>
-            Agent Health
+            AI Accounts
           </h3>
           <p className="text-xs text-on-surface-variant mt-1">
-            Cheap --version probe per configured relay agent, cached for 10 minutes. Never sends a real prompt.
+            VibeOps never stores your AI provider accounts or passwords. Each agent below is a CLI you authenticate once on this machine — Claude Code, Antigravity, Codex, or any other. Usage and billing stay on your existing subscription; VibeOps only invokes the binary.<br /><br />
+            Note: the Actors card (Settings &gt; Local Node) issues keys for agents calling INTO VibeOps — a different thing from the AI provider CLIs listed here.
           </p>
         </div>
         <button
@@ -57,19 +79,31 @@ export function AgentDoctorCard() {
         {statuses.length === 0 ? (
           <div className="text-on-surface-variant font-code-sm text-sm">No relay agents configured.</div>
         ) : (
-          statuses.map(s => (
-            <div key={s.name} className="flex items-center justify-between gap-4 border border-white/5 rounded-lg px-4 py-3">
-              <div className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${dotColor(s)}`} />
-                <span className="text-sm font-medium text-on-surface">{s.name}</span>
-                <span className="text-xs text-on-surface-variant">({s.binary})</span>
+          statuses.map(s => {
+            const copy = CONNECT_COPY[s.binary] ?? GENERIC_CONNECT;
+            return (
+              <div key={s.name} className="flex flex-col border border-white/5 rounded-lg px-4 py-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${dotColor(s)}`} />
+                    <span className="text-sm font-medium text-on-surface">{s.name}</span>
+                    <span className="text-xs text-on-surface-variant">({s.binary})</span>
+                  </div>
+                  <div className="text-right text-xs text-on-surface-variant">
+                    <div>{authLabel(s)}</div>
+                    {!s.probe.ok && <div className="text-error">{s.probe.error}</div>}
+                  </div>
+                </div>
+                <details className="mt-2 text-xs">
+                  <summary className="cursor-pointer text-primary">How to connect</summary>
+                  <div className="mt-1 text-on-surface-variant">
+                    {copy.command && <code className="block bg-background rounded px-2 py-1 mb-1">{copy.command}</code>}
+                    <p>{copy.note}</p>
+                  </div>
+                </details>
               </div>
-              <div className="text-right text-xs text-on-surface-variant">
-                <div>{authLabel(s)}</div>
-                {!s.probe.ok && <div className="text-error">{s.probe.error}</div>}
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

@@ -108,6 +108,8 @@ export function AIModelsTab() {
 
       {activeTab === "providers" ? (
         <div className="space-y-8 max-w-3xl">
+          <AgentDoctorCard />
+
           {/* Routing Strategy Card */}
           <div className="glass-card rounded-xl border border-white/10 p-6 flex flex-col gap-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
@@ -232,7 +234,6 @@ export function AIModelsTab() {
           </div>
           {activeTab === "providers" && (
             <>
-              <AgentDoctorCard />
               <div className="space-y-6">
                 <h3 className="text-xs font-code-sm uppercase tracking-widest text-on-surface-variant/50 ml-2">Configured Providers</h3>
                 <ProviderCard 
@@ -277,6 +278,7 @@ export function AIModelsTab() {
                   subtitle="Premium Knowledge Embeddings"
                   placeholder="pa-..."
                   borderColorClass="[#8B5CF6]/40"
+                  note="Used only for semantic search embeddings over your tickets/knowledge. Optional — VibeOps falls back to a local, zero-key embedder if this is empty."
                   icon={
                     <div className="w-12 h-12 bg-[#8B5CF6]/20 rounded-xl flex items-center justify-center">
                       <span className="material-symbols-outlined text-2xl text-[#8B5CF6]">explore</span>

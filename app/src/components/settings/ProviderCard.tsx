@@ -9,9 +9,10 @@ interface ProviderCardProps {
   icon: React.ReactNode;
   placeholder: string;
   borderColorClass: string;
+  note?: string;
 }
 
-export function ProviderCard({ settingKey, name, subtitle, icon, placeholder, borderColorClass }: ProviderCardProps) {
+export function ProviderCard({ settingKey, name, subtitle, icon, placeholder, borderColorClass, note }: ProviderCardProps) {
   const queryClient = useQueryClient();
   const [value, setValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -52,6 +53,7 @@ export function ProviderCard({ settingKey, name, subtitle, icon, placeholder, bo
         <div>
           <h3 className="font-headline-sm text-on-surface font-bold">{name}</h3>
           <p className="text-xs text-on-surface-variant">{subtitle}</p>
+          {note && <p className="text-[11px] text-on-surface-variant/60 mt-1">{note}</p>}
         </div>
       </div>
       
