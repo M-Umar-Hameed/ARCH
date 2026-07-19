@@ -7,16 +7,16 @@ export function makeGithubConnector(fetchImpl: typeof fetch = fetch, bindingOver
     let currentUrl: string | null = urlStr;
     let pages = 0;
     while (currentUrl && pages < 10) {
-      const res = await fetchImpl(currentUrl, { headers });
+      const res: Response = await fetchImpl(currentUrl, { headers });
       if (!res.ok) {
         throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
       }
-      const data = await res.json();
+      const data = (await res.json()) as unknown[];
       results.push(...data);
       pages++;
-      const link = res.headers.get("Link");
-      const next = link?.split(",").find((p) => p.includes('rel="next"'));
-      const match = next?.match(/<([^>]+)>/);
+      const link: string | null = res.headers.get("Link");
+      const next: string | undefined = link?.split(",").find((p: string) => p.includes('rel="next"'));
+      const match: RegExpMatchArray | null | undefined = next?.match(/<([^>]+)>/);
       currentUrl = match ? match[1] : null;
     }
     return results;
