@@ -49,7 +49,8 @@ test("renders agent dropdowns from /forge/agents data", async () => {
   expect(planOpts).toContain("PlanGPT::");
   expect(planOpts).toContain("MultiGPT::big");
   expect(planOpts).not.toContain("WorkGPT::");
-  expect(screen.getAllByRole("combobox")[0]).toHaveValue("auto::");
+  const planModelSelect = screen.getAllByRole("combobox").find((o: any) => o.previousElementSibling?.textContent === "Plan Model")!;
+  expect(planModelSelect).toHaveValue("auto::");
 });
 
 test("Run pipeline posts the selected agents and ticketId", async () => {
@@ -74,7 +75,7 @@ test("Run pipeline posts the selected agents and ticketId", async () => {
   await waitFor(() => expect(screen.getByRole("button", { name: /Run pipeline/i })).not.toBeDisabled());
   
   // Change Plan Model selection
-  const planSelect = screen.getAllByRole("combobox")[0]; // Plan Model select
+  const planSelect = screen.getAllByRole("combobox").find((o: any) => o.previousElementSibling?.textContent === "Plan Model")!;
   fireEvent.change(planSelect, { target: { value: "MultiGPT::big" } });
   
   fireEvent.click(screen.getByRole("button", { name: /Run pipeline/i }));
@@ -355,3 +356,66 @@ test("request-changes posts comment + bounces review->planned", async () => {
     body: { expectedVersion: 1, status: "planned" }
   })));
 });
+
+test("status select renders for the selected ticket with current value", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "open", version: 3 }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path.includes("/sandbox")) return { exists: false };
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  const statusSelect = await screen.findByLabelText("Ticket status");
+  expect(statusSelect).toHaveValue("open");
+  expect(statusSelect).not.toBeDisabled();
+});
+
+test("status PATCH carries expectedVersion and refreshes ticket list", async () => {
+  apiFetch.mockImplementation(async (path, opts: any) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "open", version: 3 }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path.includes("/sandbox")) return { exists: false };
+    if (path === "/tickets/t1" && opts?.method === "PATCH") return { id: "t1", title: "My Ticket", status: "closed", version: 4 };
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  const statusSelect = await screen.findByLabelText("Ticket status");
+  fireEvent.change(statusSelect, { target: { value: "closed" } });
+
+  await waitFor(() => expect(apiFetch).toHaveBeenCalledWith("/tickets/t1", {
+    method: "PATCH",
+    body: { expectedVersion: 3, status: "closed" },
+  }));
+  // loadTickets() refetch after PATCH — this is the 2nd "/tickets" call (1st on mount).
+  await waitFor(() => expect(apiFetch.mock.calls.filter((c: any) => c[0] === "/tickets").length).toBeGreaterThanOrEqual(2));
+});
+
+test("status select disabled while a run is active for the ticket", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "open", version: 3 }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path.includes("/sandbox")) return { exists: false };
+    if (path === "/forge/runs") return [{ id: "run123", ticketId: "t1", status: "running", startedAt: "2026-01-01T00:00:00Z" }];
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  const statusSelect = await screen.findByLabelText("Ticket status");
+  await waitFor(() => expect(statusSelect).toBeDisabled());
+  expect(statusSelect).toHaveAttribute("title", "Pipeline run in progress for this ticket");
+});
+
