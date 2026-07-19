@@ -69,7 +69,7 @@ export function Wizard({ onComplete }: { onComplete: () => void }) {
     try {
       const projs = await projects.list();
       const project = projs.find(p => p.key !== "inbox") || projs[0];
-      const t = await tickets.create({ projectId: project.id, title, body, status: "planned", priority: "high" });
+      await tickets.create({ projectId: project.id, title, body, priority: "high" });
       onComplete();
       navigate({ to: "/forge" });
     } catch (err: any) {

@@ -1,12 +1,12 @@
 import { apiFetch } from "./client.js";
 
-export type SystemComponentStatus = {
-  name: string;
-  status: "up" | "down" | "off" | "unknown";
-  detail: string;
+export type SystemStatus = {
+  db: string;
+  embedder: string;
+  watcher: { status: string; indexed: number };
+  activeRuns: number;
+  uptimeMs: number;
 };
-
-export type SystemStatus = { components: SystemComponentStatus[] };
 
 export type SystemMetrics = {
   uptime: number; // in hours
@@ -18,9 +18,9 @@ export type SystemMetrics = {
 };
 
 export type SystemLog = {
-  time: string;
+  at: string;
   level: string;
-  msg: string;
+  message: string;
 };
 
 export type SystemTopology = {
