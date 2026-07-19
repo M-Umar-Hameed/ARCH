@@ -44,6 +44,7 @@ export function ForgeScreen() {
   const [runStage, setRunStage] = useState("");
   const [runStatus, setRunStatus] = useState("");
   const [runError, setRunError] = useState("");
+  const [outputUnavailable, setOutputUnavailable] = useState(false);
   const nextOffsetRef = useRef<number>(0);
   const outputRef = useRef<HTMLPreElement>(null);
 
@@ -172,21 +173,6 @@ export function ForgeScreen() {
     if (selectedTicket) {
       loadSandbox(selectedTicket.id);
       loadComments(selectedTicket.id);
-      api.get("/forge/runs").then((r: any) => {
-        const tr = r.filter((run: any) => run.ticketId === selectedTicket.id);
-        const sorted = tr.sort((a: any, b: any) => b.startedAt.localeCompare(a.startedAt));
-        setTicketRuns(sorted);
-        const latest = sorted[0];
-        setInterruptedRun(latest?.status === "interrupted");
-        setTicketRunActive(latest?.status === "running");
-      }).catch(() => { setInterruptedRun(false); setTicketRunActive(false); setTicketRuns([]); });
-      setRunOutput("");
-      setRunStage("");
-      setRunStatus("");
-      setRunError("");
-      setActiveRunId(null);
-      setIsSubmitting(false);
-      nextOffsetRef.current = 0;
       setViewDiff(false);
       setDiff(null);
       setDiffParsed([]);
@@ -196,6 +182,54 @@ export function ForgeScreen() {
       setTicketComments([]);
       setCommentInput("");
       setCommentError("");
+      setOutputUnavailable(false);
+
+      api.get("/forge/runs").then((r: any) => {
+        const tr = r.filter((run: any) => run.ticketId === selectedTicket.id);
+        const sorted = tr.sort((a: any, b: any) => b.startedAt.localeCompare(a.startedAt));
+        setTicketRuns(sorted);
+        const latest = sorted[0];
+        setInterruptedRun(latest?.status === "interrupted");
+        setTicketRunActive(latest?.status === "running");
+        setRunError("");
+        nextOffsetRef.current = 0;
+
+        if (latest?.status === "running") {
+          // reattach: replay the buffered output from offset 0, then the
+          // existing poll effect (keyed on activeRunId) takes over live-follow.
+          setRunOutput("");
+          setRunStage(latest.stage);
+          setRunStatus("running");
+          setActiveRunId(latest.id);
+        } else if (latest?.status === "passed" || latest?.status === "failed" || latest?.status === "stopped") {
+          setActiveRunId(null);
+          setIsSubmitting(false);
+          setRunStage(latest.stage);
+          setRunStatus(latest.status);
+          api.get(`/forge/runs/${latest.id}/output?after=0`)
+            .then((res: any) => setRunOutput(res.chunk || ""))
+            // ponytail: any failure (404 after restart, network) just degrades
+            // to the "unavailable" note -- no need to special-case the error type.
+            .catch(() => setOutputUnavailable(true));
+        } else {
+          setActiveRunId(null);
+          setIsSubmitting(false);
+          setRunOutput("");
+          setRunStage("");
+          setRunStatus("");
+        }
+      }).catch(() => {
+        setInterruptedRun(false);
+        setTicketRunActive(false);
+        setTicketRuns([]);
+        setActiveRunId(null);
+        setIsSubmitting(false);
+        setRunOutput("");
+        setRunStage("");
+        setRunStatus("");
+        setRunError("");
+        nextOffsetRef.current = 0;
+      });
     }
   }, [selectedTicket]);
 
@@ -304,6 +338,7 @@ export function ForgeScreen() {
     setIsSubmitting(true);
     setRunError("");
     setRunOutput("");
+    setOutputUnavailable(false);
     setRunStage("");
     setRunStatus("running");
     nextOffsetRef.current = 0;
@@ -344,6 +379,7 @@ export function ForgeScreen() {
     setIsSubmitting(true);
     setRunError("");
     setRunOutput("");
+    setOutputUnavailable(false);
     setRunStage("");
     setRunStatus("running");
     nextOffsetRef.current = 0;
@@ -742,15 +778,19 @@ export function ForgeScreen() {
               {runError && <div className="text-error text-sm">{runError}</div>}
             </div>
 
-            {(activeRunId || runOutput) && (
+            {(activeRunId || runOutput || outputUnavailable) && (
               <div className="glass-card rounded-xl border border-white/10 overflow-hidden flex flex-col">
                 <div className="p-3 bg-surface-container/50 border-b border-white/5 flex items-center justify-between">
                   <span className="font-code-sm text-xs text-on-surface-variant uppercase tracking-widest">Live Console</span>
                   {activeRunId && <span className="w-2 h-2 rounded-full bg-secondary animate-pulse"></span>}
                 </div>
-                <pre ref={outputRef} className="p-4 h-64 overflow-y-auto bg-background/80 text-code-sm text-on-surface font-mono whitespace-pre-wrap custom-scrollbar">
-                  {runOutput}
-                </pre>
+                {outputUnavailable ? (
+                  <div className="p-4 text-on-surface-variant italic text-sm">view previous run output unavailable after restart</div>
+                ) : (
+                  <pre ref={outputRef} className="p-4 h-64 overflow-y-auto bg-background/80 text-code-sm text-on-surface font-mono whitespace-pre-wrap custom-scrollbar">
+                    {runOutput}
+                  </pre>
+                )}
               </div>
             )}
 
