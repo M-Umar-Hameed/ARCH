@@ -175,9 +175,12 @@ export async function importProjects(items: ImportItem[]): Promise<(Project & { 
     existing.map((p) => p.repoPath).filter((p): p is string => !!p).map(normalizePath)
   );
 
+  // Validate the whole batch BEFORE any insert — a bad path mid-batch must
+  // not leave earlier items persisted behind a 400.
+  for (const item of items) assertSafePath(item.path);
+
   const created: (Project & { isGit: boolean })[] = [];
   for (const item of items) {
-    assertSafePath(item.path);
     if (boundPaths.has(normalizePath(item.path))) continue;
 
     let base = kebab(item.name) || "project";
