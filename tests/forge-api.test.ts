@@ -455,6 +455,7 @@ it("explain-diff caches by hash (fake agent) and 404s without sandbox", async ()
   const freshRes = await app.request(`/forge/tickets/${ticket.id}/explain-diff?fresh=true`, { method: "POST", headers: h });
   const freshSummary = (await freshRes.json()).summary;
   expect(freshSummary).toContain("explain-result-counter-");
+  expect(freshSummary).not.toContain(firstMarker);
 });
 
 it("PATCH /relay/agents/:name returns 400 for bad payloads and extra fields", async () => {
