@@ -112,6 +112,21 @@ npm run relay -- --role review --agent fable
 
 Add `--watch` to poll continuously instead of running once, and `--ticket <id>` to target a specific ticket instead of the oldest one in that role's queue.
 
+### Adding another AI provider
+
+Any CLI that takes a prompt via argv or stdin and prints its answer to stdout can be a relay agent — Claude Code, Codex, and Antigravity are just the ones VibeOps ships with detection for. To add another (Kimi CLI, ollama running Llama, anything else), add an entry to `~/.vibeops/relay.json`:
+
+```json
+{
+  "agents": {
+    "kimi": { "cmd": ["kimi", "-p", "{promptFile}"], "roles": ["work"] },
+    "llama": { "cmd": ["ollama", "run", "llama3", "{prompt}"], "roles": ["work"] }
+  }
+}
+```
+
+`cmd` is a placeholder — substitute the real binary and flags for whatever CLI you're wiring in. `{prompt}`, `{promptFile}`, `{workdir}`, and `{model}` are substituted per the rules in [Quickstart](#quickstart). Binaries with no built-in auth detection (i.e. not `claude`/`codex`) show "auth: unknown" in Settings > AI Models > AI Accounts — that's expected, not an error; authenticate the CLI however its provider expects, then confirm with "Run checks".
+
 ### Security note
 
 `relay.json` — including the exact command each agent runs — lives in a local file, never the settings table. An admin API key can already read and write ticket data; if command templates lived in the DB too, that same key would amount to arbitrary command execution on whatever machine runs the relay. Keeping it filesystem-only means compromising the API can't compromise the shell.
