@@ -204,6 +204,98 @@ test("console appends polled chunks (mock two successive output responses, use f
   expect(pollCount).toBe(callCountAfterSettle);
 });
 
+test("reattaches to a running run on ticket select: resumes polling and renders buffered console", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "in_progress" }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path.includes("/sandbox")) return { exists: false };
+    if (path === "/forge/runs") return [
+      { id: "run123", ticketId: "t1", status: "running", stage: "work", startedAt: "2026-07-18T00:00:00Z" },
+    ];
+    if (path === "/forge/runs/run123/output?after=0") {
+      return { chunk: "resumed buffered output", next: 25, stage: "work", status: "running" };
+    }
+    if (path.includes("/output")) return { chunk: "", next: 25, stage: "work", status: "running" };
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  await waitFor(() => expect(screen.getByText("resumed buffered output")).toBeInTheDocument());
+  expect(screen.getByRole("button", { name: /Run pipeline/i })).toBeDisabled();
+  expect(screen.getByRole("button", { name: /Stop/i })).toBeInTheDocument();
+});
+
+test("shows final console + verdict state for a recently settled run instead of the pristine form", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "review" }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path === "/forge/tickets/t1/sandbox") return { exists: true, branch: "forge/t1", lastVerdict: "pass" };
+    if (path === "/forge/runs") return [
+      { id: "run456", ticketId: "t1", status: "passed", stage: "review", startedAt: "2026-07-18T00:00:00Z" },
+    ];
+    if (path === "/forge/runs/run456/output?after=0") {
+      return { chunk: "final review output", next: 40, stage: "review", status: "passed" };
+    }
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  await waitFor(() => expect(screen.getByText("final review output")).toBeInTheDocument());
+  expect(screen.getAllByText("review").length).toBeGreaterThan(0); // runStage badge
+  expect(screen.getAllByText("passed").length).toBeGreaterThan(0); // runStatus badge
+  expect(screen.queryByRole("button", { name: /Stop/i })).not.toBeInTheDocument();
+});
+
+test("shows an unavailable note when the settled run's output buffer 404s after a restart", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "review" }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path === "/forge/tickets/t1/sandbox") return { exists: true, branch: "forge/t1", lastVerdict: "fail" };
+    if (path === "/forge/runs") return [
+      { id: "run789", ticketId: "t1", status: "failed", stage: "review", startedAt: "2026-07-18T00:00:00Z" },
+    ];
+    if (path === "/forge/runs/run789/output?after=0") throw new NotFoundError("run not found");
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  await waitFor(() => expect(screen.getByText(/view previous run output unavailable after restart/i)).toBeInTheDocument());
+});
+
+test("no runs for ticket -> pristine start state, no console, buttons enabled", async () => {
+  apiFetch.mockImplementation(async (path) => {
+    if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "open" }];
+    if (path === "/forge/agents") return [
+      { name: "PlanGPT", roles: ["plan"] },
+      { name: "WorkGPT", roles: ["work"] },
+      { name: "ReviewGPT", roles: ["review"] },
+    ];
+    if (path === "/forge/skills") return [];
+    if (path.includes("/sandbox")) return { exists: false };
+    if (path === "/forge/runs") return [];
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  await waitFor(() => expect(screen.getByText("My Ticket")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("My Ticket"));
+
+  await waitFor(() => expect(screen.getByRole("button", { name: /Run pipeline/i })).not.toBeDisabled());
+  expect(screen.queryByText(/Live Console/i)).not.toBeInTheDocument();
+});
+
 test("renders a red health dot for an agent whose doctor probe failed", async () => {
   apiFetch.mockImplementation(async (path) => {
     if (path === "/tickets") return [{ id: "t1", title: "My Ticket", status: "open" }];
