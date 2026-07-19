@@ -5,7 +5,7 @@ import { tickets } from "../../api/tickets.js";
 import { StatusBadge } from "../StatusBadge.js";
 import { useProject } from "../../context/project.js";
 
-export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
+export function TopBar() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -61,12 +61,6 @@ export function TopBar({ onMenuClick }: { onMenuClick?: () => void }) {
   return (
     <header className="h-16 flex justify-between items-center px-4 md:px-margin-desktop bg-background/80 backdrop-blur-md border-b border-outline-variant z-40 relative">
       <div className="flex items-center gap-2 md:gap-4 relative" ref={containerRef}>
-        <button 
-          className="md:hidden material-symbols-outlined text-on-surface hover:text-primary transition-colors p-1"
-          onClick={onMenuClick}
-        >
-          menu
-        </button>
         {activeProject && (
           <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-surface-container/50 border border-white/10 rounded-full text-on-surface-variant font-code-sm text-xs">
             <span className="material-symbols-outlined text-[14px]">folder</span>

@@ -1,11 +1,10 @@
-// Specifier must be a variable: vite statically resolves literal dynamic
-// imports even with @vite-ignore, breaking builds when the optional plugin
-// isn't installed.
-const DIALOG_MODULE = "@tauri-apps/plugin-dialog";
-
+// Literal import so vite bundles the module — the old @vite-ignore variable
+// specifier was never bundled, so production builds failed the import and
+// Browse buttons silently hid. The package is a real dependency now; absence
+// is only a test scenario (simulated via doMock).
 export async function dialogAvailable(): Promise<boolean> {
   try {
-    await import(/* @vite-ignore */ DIALOG_MODULE);
+    await import("@tauri-apps/plugin-dialog");
     return true;
   } catch {
     return false;
@@ -14,7 +13,7 @@ export async function dialogAvailable(): Promise<boolean> {
 
 export async function pickFolder(): Promise<string | null> {
   try {
-    const { open } = await import(/* @vite-ignore */ DIALOG_MODULE);
+    const { open } = await import("@tauri-apps/plugin-dialog");
     const result = await open({ directory: true });
     return typeof result === "string" ? result : null;
   } catch {

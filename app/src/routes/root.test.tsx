@@ -1,5 +1,5 @@
 import { expect, test, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
 const apiFetch = vi.fn();
@@ -24,19 +24,11 @@ const wrap = (ui: any) => (
   </QueryClientProvider>
 );
 
-test("hamburger opens and closes sidebar", () => {
+test("sidebar is always visible; no hamburger in header", () => {
   render(wrap(<Root />));
-
   const aside = document.querySelector("aside")!;
-  expect(aside.className).toContain("-translate-x-full");
-
-  fireEvent.click(screen.getByText("menu"));
   expect(aside.className).toContain("translate-x-0");
-  expect(document.querySelector(".fixed.inset-0.bg-black\\/50")).toBeTruthy();
-
-  fireEvent.click(document.querySelector(".fixed.inset-0.bg-black\\/50")!);
-  expect(aside.className).toContain("-translate-x-full");
-  expect(document.querySelector(".fixed.inset-0.bg-black\\/50")).toBeFalsy();
+  expect(screen.queryByText("menu")).toBeNull();
 });
 
 import { api } from "../lib/api.js";

@@ -7,7 +7,6 @@ import { Wizard } from "../components/Wizard";
 import { api } from "../lib/api";
 
 export function Root() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
 
   useEffect(() => {
@@ -19,18 +18,10 @@ export function Root() {
   return (
     <div className="flex h-screen w-full relative overflow-hidden">
       {showWizard && <Wizard onComplete={() => setShowWizard(false)} />}
-      <Sidebar isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
-      
-      {/* Mobile overlay */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 md:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
-      )}
+      <Sidebar />
 
       <main className="md:ml-[280px] flex-1 flex flex-col h-screen overflow-hidden w-full transition-all duration-300">
-        <TopBar onMenuClick={() => setIsSidebarOpen(true)} />
+        <TopBar />
         <div className="relative flex-1 overflow-y-auto p-4 md:p-margin-desktop space-y-4 md:space-y-gutter terminal-scroll">
           <Outlet />
         </div>

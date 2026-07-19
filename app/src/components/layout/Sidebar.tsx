@@ -6,7 +6,7 @@ import { api } from "../../lib/api.js";
 import { pickFolder, dialogAvailable } from "../../lib/native-dialog.js";
 import { ImportFromFolder } from "../projects/ImportFromFolder.js";
 
-export function Sidebar({ isOpen = false, setIsOpen = (_v: boolean) => {} }) {
+export function Sidebar({ setIsOpen = (_v: boolean) => {} }) {
   const location = useLocation();
   const path = location.pathname;
   const { projects, activeProjectId, setActiveProject, refreshProjects } = useProject();
@@ -91,7 +91,7 @@ export function Sidebar({ isOpen = false, setIsOpen = (_v: boolean) => {} }) {
   };
 
   return (
-    <aside className={`fixed left-0 top-0 h-full w-[280px] bg-surface-container/95 md:bg-surface-container/60 backdrop-blur-xl border-r border-white/10 flex flex-col py-6 z-50 transform transition-transform duration-300 md:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+    <aside className={`fixed left-0 top-0 h-full w-[280px] bg-surface-container/95 md:bg-surface-container/60 backdrop-blur-xl border-r border-white/10 flex flex-col py-6 z-50 translate-x-0`}>
       <div className="px-6 mb-10 shrink-0">
         <h1 className="font-headline-md text-headline-md font-bold text-primary tracking-tighter">VibeOps</h1>
         <p className="font-code-label text-code-label text-on-surface-variant opacity-60">Terminal Access</p>

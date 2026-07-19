@@ -46,7 +46,7 @@ function TestHarness() {
   return (
     <ProjectProvider>
       <QueryClientProvider client={queryClient}>
-        <Sidebar isOpen={true} setIsOpen={() => {}} />
+        <Sidebar />
         <ListScreen />
       </QueryClientProvider>
     </ProjectProvider>

@@ -26,7 +26,7 @@ vi.mock("@tanstack/react-router", () => ({
 import { Sidebar } from "./Sidebar.js";
 
 test("primary nav renders 4 links and Library section toggles", () => {
-  render(<Sidebar isOpen={true} />);
+  render(<Sidebar />);
 
   const navs = document.querySelectorAll("nav");
   expect(navs.length).toBe(1); 
