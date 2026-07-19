@@ -16,7 +16,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
 
-  const fetchAndValidate = async () => {
+  // Returns whether the fetch succeeded so the boot retry loop knows when to
+  // stop — the embedded sidecar takes a few seconds to come up, and a single
+  // failed fetch at mount left the sidebar empty for the whole session.
+  const fetchAndValidate = async (): Promise<boolean> => {
     try {
       const list = await projectsApi.list();
       const validProjects = Array.isArray(list) ? list : [];
@@ -38,15 +41,22 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
         }
         return null;
       });
+      return true;
     } catch (err) {
       console.error("Failed to fetch projects", err);
-      setProjects([]);
-      setActiveProjectIdState(null);
+      return false;
     }
   };
 
   useEffect(() => {
-    fetchAndValidate();
+    let cancelled = false;
+    (async () => {
+      for (let attempt = 0; attempt < 15 && !cancelled; attempt++) {
+        if (await fetchAndValidate()) return;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const setActiveProject = (id: string | null) => {
