@@ -16,6 +16,9 @@ The macOS build pipeline can be triggered in two ways:
 1. Manually via **workflow_dispatch** in the GitHub Actions tab.
 2. Automatically by pushing a tag starting with `v` (e.g., `v1.0.0`).
 
+## Tagged builds (Windows + macOS)
+Pushing a tag matching `v*` — or running the **Release build** workflow manually via workflow_dispatch — triggers `.github/workflows/release-build.yml`. It builds the app on `windows-latest` and `macos-latest`, uploads the installers as workflow artifacts, and for tag pushes attaches them (NSIS `.exe` on Windows, `.dmg` on macOS) to a GitHub Release for that tag. When the `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` secrets are set the build also emits signed updater artifacts (`.sig`); without them it still succeeds with `createUpdaterArtifacts` disabled, producing unsigned installers.
+
 ## Running the Unsigned App
 The current CI pipeline builds an unsigned `.app` bundle for macOS. When you download the artifact and attempt to run it, macOS Gatekeeper may block it.
 To open the unsigned app:
