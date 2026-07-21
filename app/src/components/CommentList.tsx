@@ -7,14 +7,14 @@ export function CommentList({ items, actorName }: { items: Comment[] | undefined
       {items?.map(c => (
         <div key={c.id} className="flex gap-4">
           <Avatar actorId={c.authorId} size="lg" />
-          <div className="flex-1 glass-card p-4 rounded-xl space-y-2">
+          <div className="flex-1 min-w-0 glass-card p-4 rounded-xl space-y-2">
             <div className="flex justify-between items-center gap-4">
               <span className="font-body-sm font-bold text-primary">{actorName(c.authorId)}</span>
               <span className="font-code-sm text-[11px] opacity-40 shrink-0">
                 {new Date(c.createdAt).toLocaleString()}
               </span>
             </div>
-            <p className="text-sm text-on-surface-variant whitespace-pre-wrap">{c.body}</p>
+            <p className="text-sm text-on-surface-variant whitespace-pre-wrap break-words">{c.body}</p>
           </div>
         </div>
       ))}
