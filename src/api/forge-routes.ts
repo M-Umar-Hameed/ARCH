@@ -1,4 +1,5 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Hono } from "hono";
@@ -19,6 +20,21 @@ import { addComment, listComments } from "../services/comments.js";
 import { listActors } from "../services/actors.js";
 import { ConflictError, NotFoundError } from "../services/errors.js";
 import { requireAdmin } from "./auth.js";
+
+const ATTACH_MAX_BYTES = 10 * 1024 * 1024;
+
+// Magic-byte sniff at the trust boundary — never trust client filename/ext.
+function sniffImageExt(buf: Buffer): "png" | "jpg" | "gif" | "webp" | null {
+  if (buf.length >= 4 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return "png";
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return "jpg";
+  if (buf.length >= 4 && buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return "gif";
+  if (buf.length >= 12 && buf.toString("ascii", 0, 4) === "RIFF" && buf.toString("ascii", 8, 12) === "WEBP") return "webp";
+  return null;
+}
+
+function attachmentsDir(): string {
+  return process.env.VIBEOPS_ATTACHMENTS_DIR ?? join(homedir(), ".vibeops", "attachments");
+}
 
 type AppEnv = { Variables: { actor: Actor } };
 
@@ -49,6 +65,23 @@ async function lastVerdict(ticketId: string): Promise<"pass" | "fail" | null> {
 }
 
 export function registerForgeRoutes(app: Hono<AppEnv>): void {
+  app.post("/forge/attachments", async (c) => {
+    const { dataBase64, name } = await c.req.json().catch(() => ({}));
+    if (typeof dataBase64 !== "string" || !dataBase64) return c.json({ error: "dataBase64 required" }, 400);
+    const buf = Buffer.from(dataBase64, "base64");
+    if (buf.length === 0) return c.json({ error: "empty or invalid image data" }, 400);
+    if (buf.length > ATTACH_MAX_BYTES) return c.json({ error: "file exceeds 10MB limit" }, 400);
+    const ext = sniffImageExt(buf);
+    if (!ext) return c.json({ error: "unsupported type; allowed: png, jpg, gif, webp" }, 400);
+    const dir = attachmentsDir();
+    mkdirSync(dir, { recursive: true });
+    const abs = join(dir, `${randomUUID()}.${ext}`);
+    writeFileSync(abs, buf);
+    // Forward-slash the path so the markdown link stays intact on Windows.
+    const alt = ((typeof name === "string" ? name : "").replace(/[[\]()\r\n]/g, "").trim() || "attachment").slice(0, 80);
+    return c.json({ path: abs, markdown: `![${alt}](${abs.replace(/\\/g, "/")})` }, 201);
+  });
+
   app.get("/forge/agents", requireAdmin, async (c) => {
     const config = forgeConfig();
     return c.json(Object.entries(config.agents).map(([name, a]) => ({ name, roles: a.roles, models: a.models ?? [] })));
