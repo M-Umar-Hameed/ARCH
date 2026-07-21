@@ -65,7 +65,7 @@ Login Flow: Sign in through the Antigravity CLI/app's own sign-in flow (no singl
 
 ## codex
 
-Install: `npm install -g @codex-ai/cli`
+Install: `npm install -g @openai/codex`
 
 Login Flow: Run `codex login` once in a terminal on this machine. Signs in with your ChatGPT/OpenAI account.
 
@@ -80,7 +80,7 @@ Login Flow: Run `codex login` once in a terminal on this machine. Signs in with 
 
 ## kimi
 
-Install: Follow Moonshot AI Kimi CLI documentation.
+Install: `pip install kimi-cli` (or `uv tool install kimi-cli`). Run `kimi` once; the setup wizard stores your Moonshot key in the local keyring.
 
 Login Flow: Authenticate this CLI in your terminal the way its provider expects. VibeOps only invokes the binary — it never sees or stores the credentials.
 

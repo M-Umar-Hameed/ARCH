@@ -11,10 +11,10 @@ VibeOps never asks for your AI provider API keys. You install and sign in to eac
 
 | Agent | Install Command | Login Flow |
 | --- | --- | --- |
-| claude | `npm install -g @anthropic-ai/claude-code` | `claude login` |
-| agy | `npm install -g @google/antigravity` | follow agy vendor flow |
-| codex | `npm install -g @codex-ai/cli` | `codex login` |
-| kimi | `npm install -g @moonshot-ai/kimi-cli` | follow kimi vendor flow |
+| claude | `npm install -g @anthropic-ai/claude-code` (or winget `Anthropic.ClaudeCode`) | run `claude` once and follow the sign-in prompt |
+| agy | Antigravity CLI installer from the vendor (not on npm) | run `agy` once and follow the sign-in prompt |
+| codex | `npm install -g @openai/codex` | `codex login` |
+| kimi | `pip install kimi-cli` (or `uv tool install kimi-cli`) | run `kimi` once; the setup wizard stores your Moonshot key locally |
 
 Once logged in, go to **Settings > AI Models > AI Accounts** and click **Run checks** to verify the connection. See [docs/AGENT_CLIS.md](AGENT_CLIS.md) for detailed relay wiring instructions.
 
@@ -33,7 +33,7 @@ In the **Integrations** tab, you can bind a project to a GitHub repository by pr
 VibeOps provides a persistent knowledge base for your agents. Just drop markdown or PDF files into `~/.vibeops/vault` and they are automatically indexed. The system falls back to a local, zero-key embedder if this is empty, meaning knowledge search works immediately without any API keys.
 
 ## Troubleshooting
-- **Too Many Requests (429):** This usually means a stale provider key in the app store `settings.json`. Clear it and re-authenticate.
+- **Too Many Requests (429):** The VibeOps window is holding a stale VibeOps API key (stored in the app's own settings store), not a provider key. Restart the app; if it persists, copy the key from `~/.vibeops/credentials.json` into Settings > Local Node.
 - **Red dot in Agent Doctor:** The CLI is either not installed or not authenticated. Run the vendor login command again.
 - **Empty diff on forge run:** This is often caused by missing agent permission flags (e.g., missing `--sandbox` or dangerously flags).
 - **Where logs live:** Agent token usage is observed by VibeOps from local session logs, across ALL projects, and surfaced in the UI under Settings > AI Models > Token Usage.
