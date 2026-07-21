@@ -88,6 +88,30 @@ export function ForgeScreen() {
   const [newTaskError, setNewTaskError] = useState("");
   const [creating, setCreating] = useState(false);
 
+  type PendingAttachment = { id: string; name: string; path: string; markdown: string; previewUrl: string };
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attachError, setAttachError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFiles = async (files: File[]) => {
+    setAttachError("");
+    for (const file of files) {
+      if (!file.type.startsWith("image/")) { setAttachError("Only image files can be attached."); continue; }
+      try {
+        const dataBase64 = await new Promise<string>((resolve, reject) => {
+          const r = new FileReader();
+          r.onload = () => resolve(String(r.result).split(",")[1] ?? "");
+          r.onerror = () => reject(new Error("read failed"));
+          r.readAsDataURL(file);
+        });
+        const res = await api.post("/forge/attachments", { dataBase64, name: file.name }) as { path: string; markdown: string };
+        setAttachments(a => [...a, { id: res.path, name: file.name, path: res.path, markdown: res.markdown, previewUrl: URL.createObjectURL(file) }]);
+      } catch (e: any) {
+        setAttachError(e.message || "Attachment upload failed");
+      }
+    }
+  };
+
   const createTask = async () => {
     const text = newTask.trim();
     if (!text) return;
@@ -98,10 +122,14 @@ export function ForgeScreen() {
       const project = projects.find(p => p.key === "inbox") ?? projects[0];
       if (!project) throw new Error("no project available");
       const [title, ...rest] = text.split("\n");
+      const briefBody = rest.join("\n");
+      const attachMd = attachments.map(a => a.markdown).join("\n");
+      const body = attachMd ? (briefBody ? `${briefBody}\n\n${attachMd}` : attachMd) : briefBody;
       const t = await api.post("/tickets", {
-        projectId: project.id, title: title.slice(0, 200), body: rest.join("\n"),
+        projectId: project.id, title: title.slice(0, 200), body,
       }) as Ticket;
       setNewTask("");
+      setAttachments([]);
       await loadTickets();
       setSelectedTicket(t);
     } catch (e: any) {
@@ -571,6 +599,10 @@ export function ForgeScreen() {
               placeholder="New task: first line is the title, the rest is the brief."
               value={newTask}
               onChange={e => setNewTask(e.target.value)}
+              onPaste={e => {
+                const imgs = Array.from(e.clipboardData.files).filter(f => f.type.startsWith("image/"));
+                if (imgs.length) { e.preventDefault(); uploadFiles(imgs); }
+              }}
             />
             <button
               onClick={createTask}
@@ -579,6 +611,35 @@ export function ForgeScreen() {
             >
               Create task
             </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp"
+              multiple
+              className="hidden"
+              onChange={e => { uploadFiles(Array.from(e.target.files ?? [])); e.target.value = ""; }}
+            />
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full px-3 py-1.5 rounded border border-white/10 hover:bg-white/5 text-on-surface-variant text-xs cursor-pointer"
+            >
+              Attach image
+            </button>
+            {attachments.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {attachments.map(a => (
+                  <div key={a.id} className="relative">
+                    <img src={a.previewUrl} alt={a.name} className="w-12 h-12 object-cover rounded border border-white/10" />
+                    <button
+                      onClick={() => setAttachments(list => list.filter(x => x.id !== a.id))}
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-error text-white text-[10px] leading-none flex items-center justify-center cursor-pointer"
+                      aria-label={`Remove ${a.name}`}
+                    >×</button>
+                  </div>
+                ))}
+              </div>
+            )}
+            {attachError && <div className="text-error text-xs">{attachError}</div>}
             {newTaskError && <div className="text-error text-xs">{newTaskError}</div>}
           </div>
         </div>

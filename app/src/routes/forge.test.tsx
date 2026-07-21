@@ -511,3 +511,30 @@ test("status select disabled while a run is active for the ticket", async () => 
   expect(statusSelect).toHaveAttribute("title", "Pipeline run in progress for this ticket");
 });
 
+test("paste image attaches a thumbnail and Create task posts body with the absolute-path markdown", async () => {
+  const abs = "C:/Users/Admin/.vibeops/attachments/abc.png";
+  const posted: any[] = [];
+  apiFetch.mockImplementation(async (path: string, init?: any) => {
+    if (path === "/tickets" && init?.method === "POST") { posted.push(init.body); return { id: "t9", title: "Fix the header", status: "open" }; }
+    if (path === "/tickets") return [];
+    if (path === "/projects") return [{ id: "p1", key: "inbox" }];
+    if (path === "/forge/agents") return [];
+    if (path === "/forge/skills") return [];
+    if (path === "/actors") return [];
+    if (path === "/forge/attachments") return { path: abs, markdown: `![shot.png](${abs})` };
+    return {};
+  });
+
+  render(wrap(<ForgeScreen />));
+  const textarea = await screen.findByPlaceholderText(/New task/i);
+  fireEvent.change(textarea, { target: { value: "Fix the header" } });
+
+  const file = new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47])], "shot.png", { type: "image/png" });
+  fireEvent.paste(textarea, { clipboardData: { files: [file], getData: () => "" } });
+
+  await waitFor(() => expect(screen.getByRole("img")).toBeInTheDocument());
+
+  fireEvent.click(screen.getByRole("button", { name: /Create task/i }));
+  await waitFor(() => expect(posted.length).toBe(1));
+  expect(posted[0].body).toContain(abs);
+});
