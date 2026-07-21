@@ -1,5 +1,7 @@
 # VibeOps Quickstart
 
+**Non-developers:** Start with the [End-User Guide](USER_GUIDE.md).
+
 This guide will take you from installation to your first successfully promoted ticket in under 10 minutes.
 
 ## Prerequisites

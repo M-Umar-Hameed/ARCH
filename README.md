@@ -6,6 +6,8 @@ VibeOps is a self-hosted agent ops console — the board is a work-order queue f
 
 Vibecoding with multiple agents has a coordination problem: each agent starts cold, re-derives decisions the last one already made, and nothing records who did what. VibeOps fixes the substrate — shared state, shared memory, per-agent identity — and installs as a single file with zero configuration.
 
+**New here?** If you are a non-developer looking to automate work, read the [End-User Guide](docs/USER_GUIDE.md). VibeOps never asks for your AI provider API keys; you bring your own CLI and keep your usage on your existing subscriptions.
+
 ## What it does
 
 **The forge loop.** A coordinated pipeline of plan -> sandboxed work -> adversarial review -> human promote. The expensive reasoning model touches a task only twice (writing the plan, reviewing the diff), while a cheap or local model grinds through the implementation.
